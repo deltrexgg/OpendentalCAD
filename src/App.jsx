@@ -254,10 +254,18 @@ function App() {
     setMarginPoints(points => [...points, point.clone()])
   }, [marginClosed])
   const undoMarginPoint = () => {
+    dieGeometry?.dispose()
+    crownGeometry?.dispose()
+    setDieGeometry(null)
+    setCrownGeometry(null)
     setMarginPoints(points => points.slice(0, -1))
     setMarginClosed(false)
   }
   const clearMargin = () => {
+    dieGeometry?.dispose()
+    crownGeometry?.dispose()
+    setDieGeometry(null)
+    setCrownGeometry(null)
     setMarginPoints([])
     setMarginClosed(false)
   }
