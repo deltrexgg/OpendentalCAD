@@ -21,7 +21,7 @@ function MeshModel({ geometry, wireframe, color, opacity, marginMode, selected, 
   const material = useMemo(() => new THREE.MeshStandardMaterial({
     color, roughness: 0.62, metalness: 0.04, wireframe, transparent: opacity < 1, opacity, emissive: selected ? '#174d49' : '#000000', emissiveIntensity: selected ? 0.45 : 0,
     side: THREE.DoubleSide,
-  }), [color, wireframe, opacity])
+  }), [color, wireframe, opacity, selected])
   useEffect(() => () => material.dispose(), [material])
   return <mesh geometry={geometry} material={material} castShadow receiveShadow onClick={event => {
     event.stopPropagation()
@@ -239,7 +239,7 @@ function App() {
           {busy && <div className="loading-cover"><div className="loader" /> Parsing mesh…</div>}
           <div className="viewport-hint"><span><MousePointer2 size={12} /> DRAG TO ORBIT</span><span>SCROLL TO ZOOM</span><span>RIGHT-DRAG TO PAN</span></div>
           <div className="view-cube" aria-label="Standard views"><button type="button" onClick={() => setView('top')} title="Top view">TOP</button><button type="button" onClick={() => setView('front')} title="Front view">FRONT</button><button type="button" onClick={() => setView('right')} title="Right view">RIGHT</button><button type="button" onClick={() => setView('left')} title="Left view">LEFT</button><button type="button" onClick={() => setView('back')} title="Back view">BACK</button><button type="button" onClick={() => setView('bottom')} title="Bottom view">BOTTOM</button></div>
-          <div className="zoom-controls"><IconButton icon={ZoomIn} label="Zoom in" onClick={() => controlsRef.current?.dollyIn(1.2)} /><IconButton icon={ZoomOut} label="Zoom out" onClick={() => controlsRef.current?.dollyOut(1.2)} /><div className="zoom-divider" /><IconButton icon={Maximize2} label="Reset camera" onClick={resetView} /></div>
+          <div className="zoom-controls"><IconButton icon={ZoomIn} label="Zoom in" onClick={() => controlsRef.current?.dollyIn(1.2)} /><IconButton icon={ZoomOut} label="Zoom out" onClick={() => controlsRef.current?.dollyOut(1.2)} /><div className="zoom-divider" /><IconButton icon={Maximize2} label="Reset camera" onClick={fitModel} /></div>
         </div>
         <div className="timeline-bar"><div className="timeline-left"><span className="timeline-indicator" /> {geometry ? 'Mesh ready for inspection' : 'No active model'} <span className="timeline-sep">·</span> {geometry ? `${fileInfo.vertices.toLocaleString()} vertices` : 'Waiting for import'}</div><div className="timeline-right"><span>WORLD UNITS</span><strong>mm*</strong><span className="unit-note">*Source file units</span></div></div>
       </section>
