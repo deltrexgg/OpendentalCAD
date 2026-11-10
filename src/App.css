@@ -32,3 +32,18 @@
 .import-toolbar-button{border-color:#3d5e68;background:#22343d;color:#d0e8e6}
 .import-toolbar-button:hover{background:#2b4a50}
 @media(max-width:760px){.viewport-toolbar{padding:0 8px}.viewport-controls{gap:3px}.viewport-controls .toolbar-label{display:none}.import-toolbar-button{font-size:0;padding:0 7px}.import-toolbar-button svg{width:15px}.view-cube{right:10px;top:10px}.help-grid{grid-template-columns:1fr}.help-dialog{max-height:90vh;overflow:auto}}
+
+
+/* Phase 2 measurement, cross-section and mesh diagnostics */
+.measurement-mode-hint{border-color:#3d9187;background:#173b39e8;color:#a9f1e4}
+.quality-list{display:grid;gap:8px}
+.quality-list>div{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;font-size:10px;color:#899ba2}
+.quality-list strong{max-width:58%;text-align:right;font:9px 'DM Mono',monospace;color:#c9d7d8}
+.quality-list .quality-good{color:#78d7b8}
+.quality-list .quality-warn{color:#e8b17f}
+.section-controls{display:grid;gap:8px;margin-top:10px}
+.section-controls select{height:28px;padding:0 8px;border:1px solid #354850;border-radius:4px;background:#131e26;color:#c5d5d7;font-size:10px}
+.section-controls input{width:100%;accent-color:#55bba9}
+.section-controls>span{font:9px 'DM Mono',monospace;color:#9bb0b2}
+.measurement-card .margin-tool-heading{color:#70d6c4}
+@media(max-width:760px){.quality-list>div{font-size:9px}.quality-list strong{font-size:8px}}
