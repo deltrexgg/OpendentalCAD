@@ -23,7 +23,10 @@ export function analyzeMesh(geometry) {
     const first = vertexKey(a)
     const second = vertexKey(b)
     const key = first < second ? `${first}|${second}` : `${second}|${first}`
-    edgeUse.set(key, (edgeUse.get(key) || 0) + 1)
+    const edge = edgeUse.get(key) || { count: 0, orientation: 0 }
+    edge.count += 1
+    edge.orientation += first < second ? 1 : -1
+    edgeUse.set(key, edge)
   }
 
   for (let face = 0; face < triangleCount; face += 1) {
@@ -55,17 +58,20 @@ export function analyzeMesh(geometry) {
 
   let boundaryEdges = 0
   let nonManifoldEdges = 0
-  for (const uses of edgeUse.values()) {
-    if (uses === 1) boundaryEdges += 1
-    else if (uses > 2) nonManifoldEdges += 1
+  let windingConflicts = 0
+  for (const edge of edgeUse.values()) {
+    if (edge.count === 1) boundaryEdges += 1
+    else if (edge.count > 2) nonManifoldEdges += 1
+    else if (edge.orientation !== 0) windingConflicts += 1
   }
 
-  const closedEdgeCheck = boundaryEdges === 0 && nonManifoldEdges === 0 && triangleCount > 0
+  const closedEdgeCheck = boundaryEdges === 0 && nonManifoldEdges === 0 && windingConflicts === 0 && triangleCount > 0
   return {
     surfaceArea,
     volume: closedEdgeCheck ? Math.abs(signedVolume) : null,
     boundaryEdges,
     nonManifoldEdges,
+    windingConflicts,
     degenerateFaces,
     closedEdgeCheck,
     triangleCount,
