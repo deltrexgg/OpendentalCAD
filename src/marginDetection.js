@@ -14,7 +14,9 @@ export function suggestMarginRefinement(geometry, seedPoints) {
   if (!normal) throw new Error('The mesh needs vertex normals before margin refinement.')
 
   const bounds = geometry.boundingBox || new THREE.Box3().setFromBufferAttribute(position)
+  const center = bounds.getCenter(new THREE.Vector3())
   const diagonal = Math.max(bounds.getSize(new THREE.Vector3()).length(), 1e-8)
+  if (position.count > 500000) throw new Error('This scan is too dense for local margin refinement. Use a decimated copy with 500,000 vertices or fewer.')
   const weldTolerance = diagonal * 1e-6
   const vertices = []
   const normalSums = []
@@ -29,7 +31,7 @@ export function suggestMarginRefinement(geometry, seedPoints) {
     if (id === undefined) {
       id = vertices.length
       weldMap.set(key, id)
-      vertices.push(new THREE.Vector3(x, y, z))
+      vertices.push(new THREE.Vector3(x, y, z).sub(center))
       normalSums.push(new THREE.Vector3())
     }
     normalSums[id].add(new THREE.Vector3(normal.getX(i), normal.getY(i), normal.getZ(i)))
@@ -45,9 +47,9 @@ export function suggestMarginRefinement(geometry, seedPoints) {
     const a = index ? index.getX(face * 3) : face * 3
     const b = index ? index.getX(face * 3 + 1) : face * 3 + 1
     const c = index ? index.getX(face * 3 + 2) : face * 3 + 2
-    const ia = index ? a : triangleIndices[a]
-    const ib = index ? b : triangleIndices[b]
-    const ic = index ? c : triangleIndices[c]
+    const ia = triangleIndices[a]
+    const ib = triangleIndices[b]
+    const ic = triangleIndices[c]
     if (ia === ib || ib === ic || ic === ia) continue
     adjacency[ia].add(ib); adjacency[ia].add(ic)
     adjacency[ib].add(ia); adjacency[ib].add(ic)
