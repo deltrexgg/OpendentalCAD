@@ -12,7 +12,7 @@ A browser-based dental mesh viewer built with React, Vite, Three.js, and React T
 - Trace a manual margin point sequence on the mesh, undo or clear points, close the sequence, and export its coordinates to CSV.
 - Measure straight-line 3D distance between two picked points on the mesh.
 - Inspect a live X / Y / Z clipping plane to examine internal cross-sections.
-- Review estimated surface area, enclosed volume (only for meshes passing the edge-closure check), boundary edges, non-manifold edges, and degenerate faces.
+- Review estimated surface area, enclosed volume (only for meshes passing the edge-closure check), boundary edges, non-manifold edges, inconsistent triangle winding, and degenerate faces.
 
 ## Requirements
 
