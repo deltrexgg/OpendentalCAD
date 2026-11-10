@@ -124,21 +124,8 @@ export function generateCrownGeometry(points, cementGap, thickness, height, refe
   }
   addRingFaces(indices, 0, innerStart + (innerRings.length - 1) * count, count, true)
 
-  const addCap = (ringStart, reverse) => {
-    const ring = positions.slice(ringStart * 3, (ringStart + count) * 3)
-    const center = new THREE.Vector3()
-    for (let i = 0; i < ring.length; i += 3) center.add(new THREE.Vector3(ring[i], ring[i + 1], ring[i + 2]))
-    center.multiplyScalar(1 / count)
-    const centerIndex = positions.length / 3
-    positions.push(center.x, center.y, center.z)
-    for (let i = 0; i < count; i += 1) {
-      const next = (i + 1) % count
-      if (reverse) indices.push(centerIndex, ringStart + next, ringStart + i)
-      else indices.push(centerIndex, ringStart + i, ringStart + next)
-    }
-  }
-  addCap((outerRings.length - 1) * count, false)
-  addCap((outerRings.length + innerRings.length - 1) * count, true)
+  // Join the outer and inner crown surfaces across the occlusal roof.
+  addRingFaces(indices, (outerRings.length - 1) * count, innerStart, count)
 
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
