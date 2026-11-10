@@ -47,3 +47,21 @@
 .section-controls>span{font:9px 'DM Mono',monospace;color:#9bb0b2}
 .measurement-card .margin-tool-heading{color:#70d6c4}
 @media(max-width:760px){.quality-list>div{font-size:9px}.quality-list strong{font-size:8px}}
+
+
+/* Phase 3 restoration design controls */
+.restoration-card{padding:10px;background:#131f26;border:1px solid #34454b;border-radius:6px}
+.restoration-status{display:flex;align-items:center;gap:7px;color:#a9b9bd;font-size:9px;line-height:1.5;margin-bottom:12px}
+.restoration-status>span{width:6px;height:6px;border-radius:50%;background:#8b6b53;flex-shrink:0}
+.restoration-status>span.status-green{background:#57c7a2;box-shadow:0 0 8px #57c7a255}
+.restoration-status>span.status-muted{background:#8b6b53}
+.restoration-controls{display:grid;gap:6px}
+.restoration-controls label{display:flex;justify-content:space-between;align-items:center;margin-top:5px}
+.restoration-controls label span{font-size:9px;color:#91a2a8}
+.restoration-controls label strong{font:9px 'DM Mono',monospace;color:#c9d9d8}
+.restoration-controls input[type=range]{width:100%;accent-color:#55bba9}
+.restoration-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.restoration-result{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #2c3d44;padding-top:9px;margin-top:10px;font-size:9px;color:#b9d4cf}
+.restoration-result>div{display:flex;gap:5px}
+.restoration-result button{min-height:24px;padding:0 7px;display:inline-flex;align-items:center;gap:4px;border:1px solid #3a4b53;border-radius:4px;background:#202f37;color:#aebdc1;font-size:8px}
+.restoration-result button:hover,.restoration-result button.selected{border-color:#4c9589;background:#214741;color:#d8fff5}
