@@ -60,14 +60,14 @@ export function analyzeMesh(geometry) {
     else if (uses > 2) nonManifoldEdges += 1
   }
 
-  const watertight = boundaryEdges === 0 && nonManifoldEdges === 0 && triangleCount > 0
+  const closedEdgeCheck = boundaryEdges === 0 && nonManifoldEdges === 0 && triangleCount > 0
   return {
     surfaceArea,
-    volume: watertight ? Math.abs(signedVolume) : null,
+    volume: closedEdgeCheck ? Math.abs(signedVolume) : null,
     boundaryEdges,
     nonManifoldEdges,
     degenerateFaces,
-    watertight,
+    closedEdgeCheck,
     triangleCount,
   }
 }
