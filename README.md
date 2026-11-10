@@ -9,7 +9,13 @@ A browser-based dental mesh viewer built with React, Vite, Three.js, and React T
 - Orbit, pan, zoom, fit the model, and jump to standard top / bottom / front / back / left / right views.
 - Select the loaded mesh, inspect its basic statistics, and remove it from the scene.
 - Toggle the grid and wireframe display; adjust surface color and opacity.
-- Trace a manual margin point sequence on the mesh, undo or clear points, close the sequence, and export its coordinates to CSV.
+- Trace a manual preparation margin on the mesh, undo or clear points, close the curve, and export its coordinates to CSV.
+- Generate a tapered preparation die from a closed manual margin.
+- Generate an initial parametric crown shell with adjustable cement-space allowance, wall thickness, and crown height.
+- Export generated die and crown meshes as binary STL files.
+- Measure straight-line 3D distance between two picked points on the mesh.
+- Inspect a live X / Y / Z clipping plane to examine internal cross-sections.
+- Review estimated surface area, enclosed volume (only for meshes passing the edge-closure check), boundary edges, non-manifold edges, inconsistent triangle winding, and degenerate faces.
 
 ## Requirements
 
@@ -47,6 +53,11 @@ npm run preview
 ## Important notes
 
 - Mesh dimensions are displayed in the source file's units. The UI does not assume or convert those units to millimetres.
-- Margin tracing is a manual point-selection aid. It is not automatic clinical margin detection and is not validated for clinical use.
+- Margin tracing is manual; automatic clinical margin detection is not implemented.
+- Phase 3 die and crown geometry is a parametric starting point derived from the traced margin. It does not reconstruct tooth anatomy, infer occlusion or contacts, or guarantee a clinically correct intaglio surface.
+- Cement space is an approximate radial allowance in source units, not a validated normal-offset computation. Verify and refine all exported geometry in a suitable dental CAD workflow before manufacturing or clinical use.
+- Measurements and mesh-analysis values use source-file units; no automatic conversion to millimetres is performed.
+- Cross-section mode clips the visible mesh but does not generate a capped section solid.
+- Mesh quality checks are estimates and do not certify a mesh for clinical use or manufacturing.
 - Large meshes are limited by the browser and device memory available.
-- This is an early frontend prototype. Dental die generation, restoration design, and advanced mesh repair are not implemented yet.
+- This is an early frontend prototype. Advanced anatomy sculpting, automatic margin detection, contact / occlusion analysis, and robust manufacturing-grade mesh repair are not implemented.
