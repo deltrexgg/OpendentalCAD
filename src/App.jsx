@@ -295,7 +295,7 @@ function App() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${(fileInfo?.name || 'dental-case').replace(/\\.[^.]+$/, '')}-${suffix}.stl`
+    link.download = `${(fileInfo?.name || 'dental-case').replace(/\.[^.]+$/, '')}-${suffix}.stl`
     document.body.appendChild(link)
     link.click()
     link.remove()
