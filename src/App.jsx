@@ -9,7 +9,7 @@ import {
   Activity, Box, CircleHelp, Check, Crosshair, Download, Eye, EyeOff, FileUp,
   Grid3X3, Layers3, Maximize2, MousePointer2, Move3D, PenTool, Rotate3D, ScanLine,
   Settings2, ShieldCheck, SlidersHorizontal, Trash2, Undo2, Upload, ZoomIn, ZoomOut,
-  Ruler, Scissors, Gauge,
+  Ruler, Scissors,
 } from 'lucide-react'
 import './App.css'
 
