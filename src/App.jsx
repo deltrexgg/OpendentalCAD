@@ -7,11 +7,12 @@ import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
 import { generateCrownGeometry, generateDieGeometry } from './restoration.js'
 import * as THREE from 'three'
 import { analyzeMesh } from './meshAnalysis.js'
+import { suggestMarginRefinement } from './marginDetection.js'
 import {
   Activity, Box, CircleHelp, Check, Crosshair, Download, Eye, EyeOff, FileUp,
   Grid3X3, Layers3, Maximize2, MousePointer2, Move3D, PenTool, Rotate3D, ScanLine,
   Settings2, ShieldCheck, SlidersHorizontal, Trash2, Undo2, Upload, ZoomIn, ZoomOut,
-  Ruler, Scissors,
+  Ruler, Scissors, WandSparkles,
 } from 'lucide-react'
 import './App.css'
 
@@ -46,6 +47,17 @@ function MarginCurve({ points, closed }) {
   </>
 }
 
+function SuggestedMarginOverlay({ points, closed }) {
+  const linePoints = closed && points.length > 2 ? [...points, points[0]] : points
+  return <>
+    {linePoints.length > 1 && <Line points={linePoints} color="#64d9c6" lineWidth={2} depthTest={false} dashed />}
+    {points.map((point, index) => <mesh key={index} position={point} renderOrder={12}>
+      <sphereGeometry args={[0.032, 12, 12]} />
+      <meshBasicMaterial color="#64d9c6" depthTest={false} />
+    </mesh>)}
+  </>
+}
+
 function MeasurementOverlay({ points }) {
   return <>
     {points.length === 2 && <Line points={points} color="#62d7c2" lineWidth={2.5} depthTest={false} />}
@@ -56,7 +68,7 @@ function MeasurementOverlay({ points }) {
   </>
 }
 
-function ViewerScene({ geometry, dieGeometry, crownGeometry, showDie, showCrown, wireframe, showGrid, color, opacity, controlsRef, activeTool, selected, onSelect, marginMode, marginPoints, marginClosed, onAddMarginPoint, measurementMode, measurementPoints, onAddMeasurementPoint, sectionEnabled, sectionAxis, sectionOffset, sectionSize, clippingPlane }) {
+function ViewerScene({ geometry, dieGeometry, crownGeometry, showDie, showCrown, wireframe, showGrid, color, opacity, controlsRef, activeTool, selected, onSelect, marginMode, marginPoints, marginClosed, suggestedMarginPoints, onAddMarginPoint, measurementMode, measurementPoints, onAddMeasurementPoint, sectionEnabled, sectionAxis, sectionOffset, sectionSize, clippingPlane }) {
   return <>
     <color attach="background" args={['#111820']} />
     <PerspectiveCamera makeDefault position={[4.5, 3.2, 5.5]} fov={38} />
@@ -73,6 +85,7 @@ function ViewerScene({ geometry, dieGeometry, crownGeometry, showDie, showCrown,
       <meshBasicMaterial color="#55c7b5" transparent opacity={0.12} side={THREE.DoubleSide} depthWrite={false} />
     </mesh>}
     {marginPoints.length > 0 && <MarginCurve points={marginPoints} closed={marginClosed} />}
+    {suggestedMarginPoints.length > 0 && <SuggestedMarginOverlay points={suggestedMarginPoints} closed={marginClosed} />}
     {measurementPoints.length > 0 && <MeasurementOverlay points={measurementPoints} />}
     <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.075} minDistance={0.15} maxDistance={500} mouseButtons={{ LEFT: activeTool === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }} />
   </>
@@ -96,6 +109,8 @@ function App() {
   const [marginMode, setMarginMode] = useState(false)
   const [marginPoints, setMarginPoints] = useState([])
   const [marginClosed, setMarginClosed] = useState(false)
+  const [suggestedMarginPoints, setSuggestedMarginPoints] = useState([])
+  const [marginSuggestionInfo, setMarginSuggestionInfo] = useState(null)
   const [dieGeometry, setDieGeometry] = useState(null)
   const [crownGeometry, setCrownGeometry] = useState(null)
   const [showDie, setShowDie] = useState(true)
@@ -172,6 +187,8 @@ function App() {
       setSelected(true)
       setMarginPoints([])
       setMarginClosed(false)
+      setSuggestedMarginPoints([])
+      setMarginSuggestionInfo(null)
       setMarginMode(false)
       setMeasurementMode(false)
       setMeasurementPoints([])
@@ -229,6 +246,8 @@ function App() {
     setSelected(false)
     setMarginPoints([])
     setMarginClosed(false)
+    setSuggestedMarginPoints([])
+    setMarginSuggestionInfo(null)
     setMarginMode(false)
     dieGeometry?.dispose()
     crownGeometry?.dispose()
@@ -251,6 +270,8 @@ function App() {
   }, [])
   const addMarginPoint = useCallback((point) => {
     if (marginClosed) return
+    setSuggestedMarginPoints([])
+    setMarginSuggestionInfo(null)
     setMarginPoints(points => [...points, point.clone()])
   }, [marginClosed])
   const undoMarginPoint = () => {
@@ -260,6 +281,8 @@ function App() {
     setCrownGeometry(null)
     setMarginPoints(points => points.slice(0, -1))
     setMarginClosed(false)
+    setSuggestedMarginPoints([])
+    setMarginSuggestionInfo(null)
   }
   const clearMargin = () => {
     dieGeometry?.dispose()
@@ -268,8 +291,34 @@ function App() {
     setCrownGeometry(null)
     setMarginPoints([])
     setMarginClosed(false)
+    setSuggestedMarginPoints([])
+    setMarginSuggestionInfo(null)
   }
   const clearMeasurement = () => setMeasurementPoints([])
+  const refineMargin = () => {
+    try {
+      setBusy(true)
+      const result = suggestMarginRefinement(geometry, marginPoints)
+      setSuggestedMarginPoints(result.points)
+      setMarginSuggestionInfo(result)
+      setError('')
+    } catch (e) {
+      setError(e.message || 'Unable to suggest margin refinements.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const applyMarginSuggestions = () => {
+    if (!suggestedMarginPoints.length) return
+    dieGeometry?.dispose()
+    crownGeometry?.dispose()
+    setDieGeometry(null)
+    setCrownGeometry(null)
+    setMarginPoints(suggestedMarginPoints.map(point => point.clone()))
+    setSuggestedMarginPoints([])
+    setMarginSuggestionInfo(null)
+    setMarginClosed(true)
+  }
   const generateDie = () => {
     try {
       const referenceCenter = new THREE.Vector3(0, 0, 0)
@@ -347,7 +396,7 @@ function App() {
           <div className="viewport-controls"><button className="tool-action-button import-toolbar-button" onClick={() => inputRef.current?.click()}><Upload size={14} /> Import</button><button className={`tool-action-button ${marginMode ? 'active' : ''}`} onClick={() => { setMarginMode(value => !value); setMeasurementMode(false) }} disabled={!geometry} title="Click points on the mesh to trace its margin"><PenTool size={14} /> {marginMode ? 'Finish tracing' : 'Trace margin'}</button><button className={`tool-action-button ${measurementMode ? 'active' : ''}`} onClick={() => { setMeasurementMode(value => !value); setMarginMode(false) }} disabled={!geometry} title="Pick two points to measure their 3D distance"><Ruler size={14} /> Measure</button><span className="toolbar-label">DISPLAY</span><IconButton icon={Grid3X3} label="Toggle grid" active={showGrid} onClick={() => setShowGrid(v => !v)} /><IconButton icon={wireframe ? Eye : Layers3} label="Toggle wireframe" active={wireframe} onClick={() => setWireframe(v => !v)} /><span className="toolbar-divider" /><IconButton icon={Maximize2} label="Fit model" onClick={fitModel} disabled={!geometry} /><IconButton icon={EyeOff} label="Toggle inspector" active={showInspector} onClick={() => setShowInspector(v => !v)} /></div>
         </div>
         <div className={`viewport ${dragging ? 'dragging' : ''}`} onDragOver={e => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={handleDrop}>
-          <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, alpha: false, localClippingEnabled: true }} onPointerMissed={() => setSelected(false)}><ViewerScene geometry={geometry} dieGeometry={dieGeometry} crownGeometry={crownGeometry} showDie={showDie} showCrown={showCrown} wireframe={wireframe} showGrid={showGrid} color={color} opacity={opacity} controlsRef={controlsRef} activeTool={activeTool} selected={selected} onSelect={() => setSelected(true)} marginMode={marginMode} marginPoints={marginPoints} marginClosed={marginClosed} onAddMarginPoint={addMarginPoint} measurementMode={measurementMode} measurementPoints={measurementPoints} onAddMeasurementPoint={addMeasurementPoint} sectionEnabled={sectionEnabled} sectionAxis={sectionAxis} sectionOffset={sectionOffset} sectionSize={sectionSize} clippingPlane={clippingPlane} /></Canvas>
+          <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, alpha: false, localClippingEnabled: true }} onPointerMissed={() => setSelected(false)}><ViewerScene geometry={geometry} dieGeometry={dieGeometry} crownGeometry={crownGeometry} showDie={showDie} showCrown={showCrown} wireframe={wireframe} showGrid={showGrid} color={color} opacity={opacity} controlsRef={controlsRef} activeTool={activeTool} selected={selected} onSelect={() => setSelected(true)} marginMode={marginMode} marginPoints={marginPoints} marginClosed={marginClosed} suggestedMarginPoints={suggestedMarginPoints} onAddMarginPoint={addMarginPoint} measurementMode={measurementMode} measurementPoints={measurementPoints} onAddMeasurementPoint={addMeasurementPoint} sectionEnabled={sectionEnabled} sectionAxis={sectionAxis} sectionOffset={sectionOffset} sectionSize={sectionSize} clippingPlane={clippingPlane} /></Canvas>
           {!geometry && <div className="empty-state"><div className="empty-icon"><ScanLine size={28} strokeWidth={1.35} /></div><div className="empty-eyebrow">3D MODEL VIEWPORT</div><h1>Your workspace is ready.</h1><p>Import a dental scan or mesh to begin inspecting your model in 3D.</p><button className="primary-button" onClick={() => inputRef.current?.click()}><Upload size={16} /> Import 3D file</button><div className="file-types"><span>STL</span><span>PLY</span><i /> Up to your browser's available memory</div></div>}
           {dragging && <div className="drop-overlay"><div><FileUp size={30} /><strong>Drop your mesh here</strong><span>STL or PLY files</span></div></div>}
           {geometry && <div className="model-chip"><span className="status-dot" /> {selected ? 'OBJECT SELECTED' : 'MODEL LOADED'} <span>/</span> {fileInfo?.format}</div>}
@@ -372,6 +421,7 @@ function App() {
         <div className="panel-section"><div className="section-title">CROSS SECTION <span className="info-tag">LIVE SLICE</span></div><button className={`mini-action ${sectionEnabled ? 'primary' : ''}`} onClick={() => setSectionEnabled(value => !value)} disabled={!geometry}><Scissors size={13} /> {sectionEnabled ? 'Disable section' : 'Enable section'}</button><div className="section-controls"><select value={sectionAxis} onChange={event => setSectionAxis(event.target.value)} disabled={!geometry}><option value="x">X axis</option><option value="y">Y axis</option><option value="z">Z axis</option></select><input type="range" min={-sectionLimit} max={sectionLimit} step={Math.max(sectionLimit / 200, 0.001)} value={Math.max(-sectionLimit, Math.min(sectionLimit, sectionOffset))} onChange={event => setSectionOffset(Number(event.target.value))} disabled={!geometry || !sectionEnabled} /><span>{sectionOffset.toFixed(2)} source units</span></div><p className="footnote">Moves a live clipping plane through the mesh. This view does not generate a capped solid.</p></div>
         <div className="panel-section"><div className="section-title">MEASUREMENTS <span className="info-tag">3D</span></div><div className="margin-tool-card measurement-card"><div className="margin-tool-heading"><Ruler size={15} /><strong>Point-to-point</strong><span>{measurementPoints.length}/2 pts</span></div><p>{measuredDistance === null ? 'Activate Measure, then select two points on the mesh.' : `Distance: ${measuredDistance.toFixed(3)} source units`}</p><div className="margin-actions"><button className={`mini-action ${measurementMode ? 'primary' : ''}`} onClick={() => { setMeasurementMode(value => !value); setMarginMode(false) }} disabled={!geometry}>{measurementMode ? 'Stop measuring' : 'Measure'}</button><button className="mini-action" onClick={clearMeasurement} disabled={!measurementPoints.length}><Trash2 size={13} /> Clear</button></div></div></div>
         <div className="panel-section"><div className="section-title">DENTAL TOOLS <span className="info-tag">MANUAL</span></div><div className="margin-tool-card"><div className="margin-tool-heading"><PenTool size={15} /><strong>Margin curve</strong><span>{marginPoints.length} pts</span></div><p>{marginClosed ? 'Curve closed. Export the selected 3D points as CSV.' : marginMode ? 'Click along the tooth preparation margin in the viewport.' : 'Enable tracing, then select points directly on the mesh.'}</p><div className="margin-actions"><button className="mini-action primary" onClick={() => setMarginMode(value => !value)} disabled={!geometry}>{marginMode ? 'Stop' : 'Trace'}</button><button className="mini-action" onClick={undoMarginPoint} disabled={!marginPoints.length}><Undo2 size={13} /> Undo</button><button className="mini-action" onClick={clearMargin} disabled={!marginPoints.length}><Trash2 size={13} /> Clear</button></div><div className="margin-actions margin-export-row"><button className="mini-action" onClick={() => { setMarginClosed(true); setMarginMode(false) }} disabled={marginPoints.length < 3 || marginClosed}><Check size={13} /> Close curve</button><button className="mini-action" onClick={exportMargin} disabled={!marginPoints.length}><Download size={13} /> CSV</button></div></div></div>
+        <div className="panel-section"><div className="section-title">MARGIN ASSIST <span className="info-tag">PHASE 4</span></div><div className="margin-tool-card margin-assist-card"><div className="margin-tool-heading"><WandSparkles size={15} /><strong>Curvature-guided refinement</strong><span>{marginSuggestionInfo ? `${marginSuggestionInfo.matched}/${marginSuggestionInfo.total}` : 'ASSISTED'}</span></div><p>Trace at least 8 points first. The tool searches nearby mesh curvature changes and previews suggested point snaps.</p><div className="margin-actions"><button className="mini-action primary" onClick={refineMargin} disabled={!geometry || marginPoints.length < 8 || busy}><WandSparkles size={13} /> Suggest refinements</button><button className="mini-action" onClick={() => { setSuggestedMarginPoints([]); setMarginSuggestionInfo(null) }} disabled={!suggestedMarginPoints.length}>Discard</button></div>{marginSuggestionInfo && <><div className="margin-assist-metrics"><span>Matched points</span><strong>{marginSuggestionInfo.matched} / {marginSuggestionInfo.total}</strong><span>Heuristic confidence</span><strong>{marginSuggestionInfo.confidence}%</strong></div><div className="margin-actions"><button className="mini-action primary" onClick={applyMarginSuggestions} disabled={!marginSuggestionInfo.matched}><Check size={13} /> Apply suggestions</button></div></>}<p className="footnote">Suggestions are based on local vertex-normal variation near your traced points. Review every point manually; this is not autonomous clinical margin detection.</p></div></div>
         <div className="panel-section"><div className="section-title">RESTORATION DESIGN <span className="info-tag">PHASE 3</span></div><div className="restoration-card"><div className="restoration-status"><span className={marginClosed && marginPoints.length >= 8 ? 'status-green' : 'status-muted'} />{marginClosed && marginPoints.length >= 8 ? `Margin ready · ${marginPoints.length} points` : 'Close a margin with at least 8 points to begin'}</div><div className="restoration-controls"><label><span>Die depth</span><strong>{dieDepth.toFixed(3)}</strong></label><input type="range" min={Math.max(Number(fileInfo?.dimensions?.[0] || 1) * 0.03, 0.01)} max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.8} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 500, 0.001)} value={dieDepth} onChange={e => setDieDepth(Number(e.target.value))} disabled={!geometry} /><label><span>Cement space</span><strong>{cementGap.toFixed(3)}</strong></label><input type="range" min="0" max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.03} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 1000, 0.0005)} value={cementGap} onChange={e => setCementGap(Number(e.target.value))} disabled={!geometry} /><label><span>Wall thickness</span><strong>{wallThickness.toFixed(3)}</strong></label><input type="range" min={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.005} max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.08} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 1000, 0.0005)} value={wallThickness} onChange={e => setWallThickness(Number(e.target.value))} disabled={!geometry} /><label><span>Crown height</span><strong>{crownHeight.toFixed(3)}</strong></label><input type="range" min={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.05} max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.5} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 500, 0.001)} value={crownHeight} onChange={e => setCrownHeight(Number(e.target.value))} disabled={!geometry} /></div><div className="restoration-actions"><button className="mini-action" onClick={generateDie} disabled={!geometry || !marginClosed || marginPoints.length < 8}><Box size={13} /> Generate die</button><button className="mini-action primary" onClick={generateCrown} disabled={!geometry || !marginClosed || marginPoints.length < 8}><Layers3 size={13} /> Generate crown</button></div>{dieGeometry && <div className="restoration-result"><span>Preparation die generated</span><div><button className={showDie ? 'selected' : ''} onClick={() => setShowDie(v => !v)}>View</button><button onClick={() => exportRestoration(dieGeometry, 'die')}><Download size={12} /> STL</button></div></div>}{crownGeometry && <div className="restoration-result"><span>Crown shell generated</span><div><button className={showCrown ? 'selected' : ''} onClick={() => setShowCrown(v => !v)}>View</button><button onClick={() => exportRestoration(crownGeometry, 'crown')}><Download size={12} /> STL</button></div></div>}<p className="footnote">Creates an initial parametric die and crown shell from the manually traced margin. Dimensions use source units. This is a design prototype, not an anatomy-aware or clinically validated restoration.</p></div></div>
         <div className="panel-footer"><div className="privacy-icon"><ShieldCheck size={15} /></div><div><strong>Private by design</strong><span>Your mesh is processed locally in this browser.</span></div></div>
       </aside>}
