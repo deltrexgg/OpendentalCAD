@@ -3,6 +3,8 @@ import { Canvas } from '@react-three/fiber'
 import { Bounds, Center, Line, OrbitControls, PerspectiveCamera } from '@react-three/drei'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js'
+import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
+import { generateCrownGeometry, generateDieGeometry } from './restoration.js'
 import * as THREE from 'three'
 import { analyzeMesh } from './meshAnalysis.js'
 import {
@@ -54,7 +56,7 @@ function MeasurementOverlay({ points }) {
   </>
 }
 
-function ViewerScene({ geometry, wireframe, showGrid, color, opacity, controlsRef, activeTool, selected, onSelect, marginMode, marginPoints, marginClosed, onAddMarginPoint, measurementMode, measurementPoints, onAddMeasurementPoint, sectionEnabled, sectionAxis, sectionOffset, sectionSize, clippingPlane }) {
+function ViewerScene({ geometry, dieGeometry, crownGeometry, showDie, showCrown, wireframe, showGrid, color, opacity, controlsRef, activeTool, selected, onSelect, marginMode, marginPoints, marginClosed, onAddMarginPoint, measurementMode, measurementPoints, onAddMeasurementPoint, sectionEnabled, sectionAxis, sectionOffset, sectionSize, clippingPlane }) {
   return <>
     <color attach="background" args={['#111820']} />
     <PerspectiveCamera makeDefault position={[4.5, 3.2, 5.5]} fov={38} />
@@ -64,6 +66,8 @@ function ViewerScene({ geometry, wireframe, showGrid, color, opacity, controlsRe
     {showGrid && <gridHelper args={[12, 24, '#34434d', '#25323b']} position={[0, -1.3, 0]} />}
     <axesHelper args={[1.35]} />
     {geometry && <Bounds fit clip observe margin={1.35}><Center><MeshModel geometry={geometry} wireframe={wireframe} color={color} opacity={opacity} marginMode={marginMode} measurementMode={measurementMode} clippingPlane={clippingPlane} selected={selected} onSelect={onSelect} onAddMarginPoint={onAddMarginPoint} onAddMeasurementPoint={onAddMeasurementPoint} /></Center></Bounds>}
+    {showDie && dieGeometry && <mesh geometry={dieGeometry} renderOrder={2}><meshStandardMaterial color="#65a9a0" roughness={0.72} side={THREE.DoubleSide} /></mesh>}
+    {showCrown && crownGeometry && <mesh geometry={crownGeometry} renderOrder={3}><meshStandardMaterial color="#e5c58f" metalness={0.08} roughness={0.3} side={THREE.DoubleSide} /></mesh>}
     {sectionEnabled && <mesh position={new THREE.Vector3(sectionAxis === 'x' ? 1 : 0, sectionAxis === 'y' ? 1 : 0, sectionAxis === 'z' ? 1 : 0).multiplyScalar(sectionOffset)} rotation={sectionAxis === 'x' ? [0, Math.PI / 2, 0] : sectionAxis === 'y' ? [Math.PI / 2, 0, 0] : [0, 0, 0]}>
       <planeGeometry args={[sectionSize, sectionSize]} />
       <meshBasicMaterial color="#55c7b5" transparent opacity={0.12} side={THREE.DoubleSide} depthWrite={false} />
@@ -92,6 +96,14 @@ function App() {
   const [marginMode, setMarginMode] = useState(false)
   const [marginPoints, setMarginPoints] = useState([])
   const [marginClosed, setMarginClosed] = useState(false)
+  const [dieGeometry, setDieGeometry] = useState(null)
+  const [crownGeometry, setCrownGeometry] = useState(null)
+  const [showDie, setShowDie] = useState(true)
+  const [showCrown, setShowCrown] = useState(true)
+  const [cementGap, setCementGap] = useState(0.05)
+  const [wallThickness, setWallThickness] = useState(0.25)
+  const [crownHeight, setCrownHeight] = useState(2)
+  const [dieDepth, setDieDepth] = useState(3)
   const [measurementMode, setMeasurementMode] = useState(false)
   const [measurementPoints, setMeasurementPoints] = useState([])
   const [sectionEnabled, setSectionEnabled] = useState(false)
@@ -144,6 +156,17 @@ function App() {
       const analysis = analyzeMesh(next)
       if (!faces) { next.dispose(); throw new Error('No triangular faces were found in this mesh.') }
       geometryRef.current?.dispose()
+      dieGeometry?.dispose()
+      crownGeometry?.dispose()
+      setDieGeometry(null)
+      setCrownGeometry(null)
+      setShowDie(true)
+      setShowCrown(true)
+      const designScale = Math.max(size.x, size.y, size.z)
+      setCementGap(designScale * 0.005)
+      setWallThickness(designScale * 0.025)
+      setCrownHeight(designScale * 0.2)
+      setDieDepth(designScale * 0.3)
       geometryRef.current = next
       setGeometry(next)
       setSelected(true)
@@ -207,6 +230,10 @@ function App() {
     setMarginPoints([])
     setMarginClosed(false)
     setMarginMode(false)
+    dieGeometry?.dispose()
+    crownGeometry?.dispose()
+    setDieGeometry(null)
+    setCrownGeometry(null)
     setMeasurementMode(false)
     setMeasurementPoints([])
     setSectionEnabled(false)
@@ -235,6 +262,45 @@ function App() {
     setMarginClosed(false)
   }
   const clearMeasurement = () => setMeasurementPoints([])
+  const generateDie = () => {
+    try {
+      const referenceCenter = fileInfo.bounds.getCenter(new THREE.Vector3())
+      const next = generateDieGeometry(marginPoints, dieDepth, referenceCenter)
+      dieGeometry?.dispose()
+      setDieGeometry(next)
+      setShowDie(true)
+      setShowCrown(false)
+      setError('')
+    } catch (e) { setError(e.message || 'Unable to generate the preparation die.') }
+  }
+  const generateCrown = () => {
+    try {
+      const referenceCenter = fileInfo.bounds.getCenter(new THREE.Vector3())
+      const next = generateCrownGeometry(marginPoints, cementGap, wallThickness, crownHeight, referenceCenter)
+      crownGeometry?.dispose()
+      setCrownGeometry(next)
+      setShowCrown(true)
+      setShowDie(false)
+      setError('')
+    } catch (e) { setError(e.message || 'Unable to generate the crown shell.') }
+  }
+  const exportRestoration = (geometryToExport, suffix) => {
+    if (!geometryToExport) return
+    const exporter = new STLExporter()
+    const material = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide })
+    const mesh = new THREE.Mesh(geometryToExport, material)
+    const data = exporter.parse(mesh, { binary: true })
+    material.dispose()
+    const blob = new Blob([data], { type: 'model/stl' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${(fileInfo?.name || 'dental-case').replace(/\\.[^.]+$/, '')}-${suffix}.stl`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
   const exportMargin = () => {
     if (!marginPoints.length) return
     const rows = ['point,x,y,z', ...marginPoints.map((point, index) => `${index + 1},${point.x.toFixed(4)},${point.y.toFixed(4)},${point.z.toFixed(4)}`)]
@@ -273,7 +339,7 @@ function App() {
           <div className="viewport-controls"><button className="tool-action-button import-toolbar-button" onClick={() => inputRef.current?.click()}><Upload size={14} /> Import</button><button className={`tool-action-button ${marginMode ? 'active' : ''}`} onClick={() => { setMarginMode(value => !value); setMeasurementMode(false) }} disabled={!geometry} title="Click points on the mesh to trace its margin"><PenTool size={14} /> {marginMode ? 'Finish tracing' : 'Trace margin'}</button><button className={`tool-action-button ${measurementMode ? 'active' : ''}`} onClick={() => { setMeasurementMode(value => !value); setMarginMode(false) }} disabled={!geometry} title="Pick two points to measure their 3D distance"><Ruler size={14} /> Measure</button><span className="toolbar-label">DISPLAY</span><IconButton icon={Grid3X3} label="Toggle grid" active={showGrid} onClick={() => setShowGrid(v => !v)} /><IconButton icon={wireframe ? Eye : Layers3} label="Toggle wireframe" active={wireframe} onClick={() => setWireframe(v => !v)} /><span className="toolbar-divider" /><IconButton icon={Maximize2} label="Fit model" onClick={fitModel} disabled={!geometry} /><IconButton icon={EyeOff} label="Toggle inspector" active={showInspector} onClick={() => setShowInspector(v => !v)} /></div>
         </div>
         <div className={`viewport ${dragging ? 'dragging' : ''}`} onDragOver={e => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={handleDrop}>
-          <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, alpha: false, localClippingEnabled: true }} onPointerMissed={() => setSelected(false)}><ViewerScene geometry={geometry} wireframe={wireframe} showGrid={showGrid} color={color} opacity={opacity} controlsRef={controlsRef} activeTool={activeTool} selected={selected} onSelect={() => setSelected(true)} marginMode={marginMode} marginPoints={marginPoints} marginClosed={marginClosed} onAddMarginPoint={addMarginPoint} measurementMode={measurementMode} measurementPoints={measurementPoints} onAddMeasurementPoint={addMeasurementPoint} sectionEnabled={sectionEnabled} sectionAxis={sectionAxis} sectionOffset={sectionOffset} sectionSize={sectionSize} clippingPlane={clippingPlane} /></Canvas>
+          <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, alpha: false, localClippingEnabled: true }} onPointerMissed={() => setSelected(false)}><ViewerScene geometry={geometry} dieGeometry={dieGeometry} crownGeometry={crownGeometry} showDie={showDie} showCrown={showCrown} wireframe={wireframe} showGrid={showGrid} color={color} opacity={opacity} controlsRef={controlsRef} activeTool={activeTool} selected={selected} onSelect={() => setSelected(true)} marginMode={marginMode} marginPoints={marginPoints} marginClosed={marginClosed} onAddMarginPoint={addMarginPoint} measurementMode={measurementMode} measurementPoints={measurementPoints} onAddMeasurementPoint={addMeasurementPoint} sectionEnabled={sectionEnabled} sectionAxis={sectionAxis} sectionOffset={sectionOffset} sectionSize={sectionSize} clippingPlane={clippingPlane} /></Canvas>
           {!geometry && <div className="empty-state"><div className="empty-icon"><ScanLine size={28} strokeWidth={1.35} /></div><div className="empty-eyebrow">3D MODEL VIEWPORT</div><h1>Your workspace is ready.</h1><p>Import a dental scan or mesh to begin inspecting your model in 3D.</p><button className="primary-button" onClick={() => inputRef.current?.click()}><Upload size={16} /> Import 3D file</button><div className="file-types"><span>STL</span><span>PLY</span><i /> Up to your browser's available memory</div></div>}
           {dragging && <div className="drop-overlay"><div><FileUp size={30} /><strong>Drop your mesh here</strong><span>STL or PLY files</span></div></div>}
           {geometry && <div className="model-chip"><span className="status-dot" /> {selected ? 'OBJECT SELECTED' : 'MODEL LOADED'} <span>/</span> {fileInfo?.format}</div>}
@@ -298,6 +364,7 @@ function App() {
         <div className="panel-section"><div className="section-title">CROSS SECTION <span className="info-tag">LIVE SLICE</span></div><button className={`mini-action ${sectionEnabled ? 'primary' : ''}`} onClick={() => setSectionEnabled(value => !value)} disabled={!geometry}><Scissors size={13} /> {sectionEnabled ? 'Disable section' : 'Enable section'}</button><div className="section-controls"><select value={sectionAxis} onChange={event => setSectionAxis(event.target.value)} disabled={!geometry}><option value="x">X axis</option><option value="y">Y axis</option><option value="z">Z axis</option></select><input type="range" min={-sectionLimit} max={sectionLimit} step={Math.max(sectionLimit / 200, 0.001)} value={Math.max(-sectionLimit, Math.min(sectionLimit, sectionOffset))} onChange={event => setSectionOffset(Number(event.target.value))} disabled={!geometry || !sectionEnabled} /><span>{sectionOffset.toFixed(2)} source units</span></div><p className="footnote">Moves a live clipping plane through the mesh. This view does not generate a capped solid.</p></div>
         <div className="panel-section"><div className="section-title">MEASUREMENTS <span className="info-tag">3D</span></div><div className="margin-tool-card measurement-card"><div className="margin-tool-heading"><Ruler size={15} /><strong>Point-to-point</strong><span>{measurementPoints.length}/2 pts</span></div><p>{measuredDistance === null ? 'Activate Measure, then select two points on the mesh.' : `Distance: ${measuredDistance.toFixed(3)} source units`}</p><div className="margin-actions"><button className={`mini-action ${measurementMode ? 'primary' : ''}`} onClick={() => { setMeasurementMode(value => !value); setMarginMode(false) }} disabled={!geometry}>{measurementMode ? 'Stop measuring' : 'Measure'}</button><button className="mini-action" onClick={clearMeasurement} disabled={!measurementPoints.length}><Trash2 size={13} /> Clear</button></div></div></div>
         <div className="panel-section"><div className="section-title">DENTAL TOOLS <span className="info-tag">MANUAL</span></div><div className="margin-tool-card"><div className="margin-tool-heading"><PenTool size={15} /><strong>Margin curve</strong><span>{marginPoints.length} pts</span></div><p>{marginClosed ? 'Curve closed. Export the selected 3D points as CSV.' : marginMode ? 'Click along the tooth preparation margin in the viewport.' : 'Enable tracing, then select points directly on the mesh.'}</p><div className="margin-actions"><button className="mini-action primary" onClick={() => setMarginMode(value => !value)} disabled={!geometry}>{marginMode ? 'Stop' : 'Trace'}</button><button className="mini-action" onClick={undoMarginPoint} disabled={!marginPoints.length}><Undo2 size={13} /> Undo</button><button className="mini-action" onClick={clearMargin} disabled={!marginPoints.length}><Trash2 size={13} /> Clear</button></div><div className="margin-actions margin-export-row"><button className="mini-action" onClick={() => { setMarginClosed(true); setMarginMode(false) }} disabled={marginPoints.length < 3 || marginClosed}><Check size={13} /> Close curve</button><button className="mini-action" onClick={exportMargin} disabled={!marginPoints.length}><Download size={13} /> CSV</button></div></div></div>
+        <div className="panel-section"><div className="section-title">RESTORATION DESIGN <span className="info-tag">PHASE 3</span></div><div className="restoration-card"><div className="restoration-status"><span className={marginClosed && marginPoints.length >= 8 ? 'status-green' : 'status-muted'} />{marginClosed && marginPoints.length >= 8 ? `Margin ready · ${marginPoints.length} points` : 'Close a margin with at least 8 points to begin'}</div><div className="restoration-controls"><label><span>Die depth</span><strong>{dieDepth.toFixed(3)}</strong></label><input type="range" min={Math.max(Number(fileInfo?.dimensions?.[0] || 1) * 0.03, 0.01)} max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.8} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 500, 0.001)} value={dieDepth} onChange={e => setDieDepth(Number(e.target.value))} disabled={!geometry} /><label><span>Cement space</span><strong>{cementGap.toFixed(3)}</strong></label><input type="range" min="0" max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.03} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 1000, 0.0005)} value={cementGap} onChange={e => setCementGap(Number(e.target.value))} disabled={!geometry} /><label><span>Wall thickness</span><strong>{wallThickness.toFixed(3)}</strong></label><input type="range" min={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.005} max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.08} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 1000, 0.0005)} value={wallThickness} onChange={e => setWallThickness(Number(e.target.value))} disabled={!geometry} /><label><span>Crown height</span><strong>{crownHeight.toFixed(3)}</strong></label><input type="range" min={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.05} max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.5} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 500, 0.001)} value={crownHeight} onChange={e => setCrownHeight(Number(e.target.value))} disabled={!geometry} /></div><div className="restoration-actions"><button className="mini-action" onClick={generateDie} disabled={!geometry || !marginClosed || marginPoints.length < 8}><Box size={13} /> Generate die</button><button className="mini-action primary" onClick={generateCrown} disabled={!geometry || !marginClosed || marginPoints.length < 8}><Layers3 size={13} /> Generate crown</button></div>{dieGeometry && <div className="restoration-result"><span>Preparation die generated</span><div><button className={showDie ? 'selected' : ''} onClick={() => setShowDie(v => !v)}>View</button><button onClick={() => exportRestoration(dieGeometry, 'die')}><Download size={12} /> STL</button></div></div>}{crownGeometry && <div className="restoration-result"><span>Crown shell generated</span><div><button className={showCrown ? 'selected' : ''} onClick={() => setShowCrown(v => !v)}>View</button><button onClick={() => exportRestoration(crownGeometry, 'crown')}><Download size={12} /> STL</button></div></div>}<p className="footnote">Creates an initial parametric die and crown shell from the manually traced margin. Dimensions use source units. This is a design prototype, not an anatomy-aware or clinically validated restoration.</p></div></div>
         <div className="panel-footer"><div className="privacy-icon"><ShieldCheck size={15} /></div><div><strong>Private by design</strong><span>Your mesh is processed locally in this browser.</span></div></div>
       </aside>}
     </main>
