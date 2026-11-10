@@ -275,7 +275,7 @@ function App() {
   }
   const generateCrown = () => {
     try {
-      const referenceCenter = fileInfo.bounds.getCenter(new THREE.Vector3())
+      const referenceCenter = new THREE.Vector3(0, 0, 0)
       const next = generateCrownGeometry(marginPoints, cementGap, wallThickness, crownHeight, referenceCenter)
       crownGeometry?.dispose()
       setCrownGeometry(next)
