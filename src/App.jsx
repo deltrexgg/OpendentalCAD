@@ -182,7 +182,7 @@ function App() {
     } catch (e) {
       setError(e?.message || 'Unable to read this mesh. The file may be damaged or use an unsupported encoding.')
     } finally { setBusy(false) }
-  }, [])
+  }, [dieGeometry, crownGeometry])
 
   const fitModel = () => {
     const controls = controlsRef.current
@@ -264,7 +264,7 @@ function App() {
   const clearMeasurement = () => setMeasurementPoints([])
   const generateDie = () => {
     try {
-      const referenceCenter = fileInfo.bounds.getCenter(new THREE.Vector3())
+      const referenceCenter = new THREE.Vector3(0, 0, 0)
       const next = generateDieGeometry(marginPoints, dieDepth, referenceCenter)
       dieGeometry?.dispose()
       setDieGeometry(next)
