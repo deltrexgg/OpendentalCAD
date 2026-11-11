@@ -85,3 +85,14 @@ Phase 5 provides manual outer-surface shaping only. It does not automatically cr
 - Re-run the analysis after changing alignment, threshold, or crown sculpting.
 
 Phase 6 is an interactive geometric proximity aid, not a clinical occlusion solver. Distances are nearest sampled-vertex estimates rather than exact point-to-triangle surface distances; they are unsigned and cannot reliably detect mesh intersection. The opposing arch must be manually aligned, and the results depend on scan density, orientation, and source units. It does not establish clinically valid contacts, occlusal forces, or manufacturing readiness.
+
+
+## Phase 7 — Manufacturing preparation
+
+- Adds a preflight panel for generated crowns and preparation dies.
+- Checks triangle indices and coordinates, open boundary edges, non-manifold edges, inconsistent winding, degenerate faces, duplicate faces, and enclosed-volume validity.
+- STL export now runs the same topology preflight and blocks export when the mesh fails those checks.
+- Estimates wall thickness by sampling vertices and searching for nearby vertices with opposing normals; reports the minimum and 10th-percentile sampled estimates.
+- All analysis runs locally in the browser and uses source-file units.
+
+Phase 7 does not automatically repair meshes. The wall-thickness value is a nearest opposing-normal vertex estimate, not a certified minimum-thickness computation; sampling can miss thin regions. Undercut detection, exact surface-distance thickness, fit validation, self-intersection detection, and manufacturing-process simulation are not implemented. A passed topology preflight only means the implemented checks did not find the listed defects; it is not a clinical or manufacturing certification. No production build, browser interaction test, or representative dental-scan validation has been completed for this phase.
