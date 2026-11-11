@@ -9,6 +9,7 @@ import * as THREE from 'three'
 import { analyzeMesh } from './meshAnalysis.js'
 import { suggestMarginRefinement } from './marginDetection.js'
 import { createSculptableGeometry, sculptCrownGeometry } from './crownSculpt.js'
+import { analyzeOcclusionClearance, clearOcclusionColors } from './occlusionAnalysis.js'
 import {
   Activity, Box, CircleHelp, Check, Crosshair, Download, Eye, EyeOff, FileUp,
   Grid3X3, Layers3, Maximize2, MousePointer2, Move3D, PenTool, Rotate3D, ScanLine,
@@ -69,7 +70,7 @@ function MeasurementOverlay({ points }) {
   </>
 }
 
-function ViewerScene({ geometry, dieGeometry, crownGeometry, showDie, showCrown, wireframe, showGrid, color, opacity, controlsRef, activeTool, selected, onSelect, marginMode, marginPoints, marginClosed, suggestedMarginPoints, onAddMarginPoint, measurementMode, measurementPoints, onAddMeasurementPoint, sectionEnabled, sectionAxis, sectionOffset, sectionSize, clippingPlane, sculptMode, onSculptStart, onSculpt, onSculptEnd }) {
+function ViewerScene({ geometry, dieGeometry, crownGeometry, opposingGeometry, opposingOffset, clearanceActive, showDie, showCrown, wireframe, showGrid, color, opacity, controlsRef, activeTool, selected, onSelect, marginMode, marginPoints, marginClosed, suggestedMarginPoints, onAddMarginPoint, measurementMode, measurementPoints, onAddMeasurementPoint, sectionEnabled, sectionAxis, sectionOffset, sectionSize, clippingPlane, sculptMode, onSculptStart, onSculpt, onSculptEnd }) {
   return <>
     <color attach="background" args={['#111820']} />
     <PerspectiveCamera makeDefault position={[4.5, 3.2, 5.5]} fov={38} />
@@ -79,8 +80,9 @@ function ViewerScene({ geometry, dieGeometry, crownGeometry, showDie, showCrown,
     {showGrid && <gridHelper args={[12, 24, '#34434d', '#25323b']} position={[0, -1.3, 0]} />}
     <axesHelper args={[1.35]} />
     {geometry && <Bounds fit clip observe margin={1.35}><Center><MeshModel geometry={geometry} wireframe={wireframe} color={color} opacity={opacity} marginMode={marginMode} measurementMode={measurementMode} clippingPlane={clippingPlane} selected={selected} onSelect={onSelect} onAddMarginPoint={onAddMarginPoint} onAddMeasurementPoint={onAddMeasurementPoint} /></Center></Bounds>}
+    {opposingGeometry && <mesh geometry={opposingGeometry} position={opposingOffset} renderOrder={1} raycast={() => null}><meshStandardMaterial color="#76a9d8" transparent opacity={0.28} depthWrite={false} side={THREE.DoubleSide} /></mesh>}
     {showDie && dieGeometry && <mesh geometry={dieGeometry} renderOrder={2}><meshStandardMaterial color="#65a9a0" roughness={0.72} side={THREE.DoubleSide} /></mesh>}
-    {showCrown && crownGeometry && <mesh geometry={crownGeometry} renderOrder={3} onPointerDown={sculptMode ? event => { event.stopPropagation(); event.target.setPointerCapture?.(event.pointerId); onSculptStart(); const normal = event.face?.normal?.clone().transformDirection(event.object.matrixWorld) || new THREE.Vector3(0, 1, 0); onSculpt(event.point.clone(), normal) } : undefined} onPointerMove={sculptMode ? event => { if (event.buttons !== 1) return; event.stopPropagation(); const normal = event.face?.normal?.clone().transformDirection(event.object.matrixWorld) || new THREE.Vector3(0, 1, 0); onSculpt(event.point.clone(), normal) } : undefined} onPointerUp={sculptMode ? event => { event.stopPropagation(); event.target.releasePointerCapture?.(event.pointerId); onSculptEnd() } : undefined} onPointerCancel={sculptMode ? onSculptEnd : undefined}><meshStandardMaterial color="#e5c58f" metalness={0.08} roughness={0.3} side={THREE.DoubleSide} /></mesh>}
+    {showCrown && crownGeometry && <mesh geometry={crownGeometry} renderOrder={3} onPointerDown={sculptMode ? event => { event.stopPropagation(); event.target.setPointerCapture?.(event.pointerId); onSculptStart(); const normal = event.face?.normal?.clone().transformDirection(event.object.matrixWorld) || new THREE.Vector3(0, 1, 0); onSculpt(event.point.clone(), normal) } : undefined} onPointerMove={sculptMode ? event => { if (event.buttons !== 1) return; event.stopPropagation(); const normal = event.face?.normal?.clone().transformDirection(event.object.matrixWorld) || new THREE.Vector3(0, 1, 0); onSculpt(event.point.clone(), normal) } : undefined} onPointerUp={sculptMode ? event => { event.stopPropagation(); event.target.releasePointerCapture?.(event.pointerId); onSculptEnd() } : undefined} onPointerCancel={sculptMode ? onSculptEnd : undefined}><meshStandardMaterial color="#e5c58f" metalness={0.08} roughness={0.3} side={THREE.DoubleSide} vertexColors={clearanceActive} /></mesh>}
     {sectionEnabled && <mesh position={new THREE.Vector3(sectionAxis === 'x' ? 1 : 0, sectionAxis === 'y' ? 1 : 0, sectionAxis === 'z' ? 1 : 0).multiplyScalar(sectionOffset)} rotation={sectionAxis === 'x' ? [0, Math.PI / 2, 0] : sectionAxis === 'y' ? [Math.PI / 2, 0, 0] : [0, 0, 0]}>
       <planeGeometry args={[sectionSize, sectionSize]} />
       <meshBasicMaterial color="#55c7b5" transparent opacity={0.12} side={THREE.DoubleSide} depthWrite={false} />
@@ -114,6 +116,11 @@ function App() {
   const [marginSuggestionInfo, setMarginSuggestionInfo] = useState(null)
   const [dieGeometry, setDieGeometry] = useState(null)
   const [crownGeometry, setCrownGeometry] = useState(null)
+  const [opposingGeometry, setOpposingGeometry] = useState(null)
+  const [opposingInfo, setOpposingInfo] = useState(null)
+  const [opposingOffset, setOpposingOffset] = useState([0, 0, 0])
+  const [clearanceThreshold, setClearanceThreshold] = useState(0.1)
+  const [clearanceResult, setClearanceResult] = useState(null)
   const [sculptMode, setSculptMode] = useState(false)
   const [sculptTool, setSculptTool] = useState('raise')
   const [sculptBrushRadius, setSculptBrushRadius] = useState(0.35)
@@ -136,6 +143,7 @@ function App() {
   const [selected, setSelected] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const inputRef = useRef(null)
+  const opposingInputRef = useRef(null)
   const controlsRef = useRef(null)
   const geometryRef = useRef(null)
   const sectionNormal = useMemo(() => new THREE.Vector3(sectionAxis === 'x' ? 1 : 0, sectionAxis === 'y' ? 1 : 0, sectionAxis === 'z' ? 1 : 0), [sectionAxis])
@@ -179,6 +187,11 @@ function App() {
       const analysis = analyzeMesh(next)
       if (!faces) { next.dispose(); throw new Error('No triangular faces were found in this mesh.') }
       geometryRef.current?.dispose()
+      opposingGeometry?.dispose()
+      setOpposingGeometry(null)
+      setOpposingInfo(null)
+      setOpposingOffset([0, 0, 0])
+      setClearanceResult(null)
       dieGeometry?.dispose()
       crownGeometry?.dispose()
       setDieGeometry(null)
@@ -210,7 +223,58 @@ function App() {
     } catch (e) {
       setError(e?.message || 'Unable to read this mesh. The file may be damaged or use an unsupported encoding.')
     } finally { setBusy(false) }
-  }, [dieGeometry, crownGeometry])
+  }, [dieGeometry, crownGeometry, opposingGeometry])
+
+  const loadOpposingFile = async (file) => {
+    if (!file) return
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (!['stl', 'ply'].includes(ext)) { setError('Unsupported opposing scan. Choose an STL or PLY mesh.'); return }
+    try {
+      setBusy(true)
+      const buffer = await file.arrayBuffer()
+      if (!buffer.byteLength) throw new Error('The opposing scan is empty or unreadable.')
+      const loader = ext === 'stl' ? new STLLoader() : new PLYLoader()
+      const next = loader.parse(buffer)
+      const position = next.getAttribute('position')
+      if (!position || position.count < 3) { next.dispose(); throw new Error('The opposing scan does not contain enough vertices.') }
+      for (let i = 0; i < position.count; i += 1) {
+        if (!Number.isFinite(position.getX(i)) || !Number.isFinite(position.getY(i)) || !Number.isFinite(position.getZ(i))) {
+          next.dispose(); throw new Error('The opposing scan contains invalid coordinates.')
+        }
+      }
+      next.computeBoundingBox()
+      const bounds = next.boundingBox
+      if (!bounds || bounds.isEmpty()) { next.dispose(); throw new Error('The opposing scan has invalid dimensions.') }
+      const center = bounds.getCenter(new THREE.Vector3())
+      next.translate(-center.x, -center.y, -center.z)
+      next.computeVertexNormals()
+      next.computeBoundingBox()
+      next.computeBoundingSphere()
+      opposingGeometry?.dispose()
+      setOpposingGeometry(next)
+      setOpposingInfo({ name: file.name, vertices: position.count })
+      setOpposingOffset([0, 0, 0])
+      clearOcclusionColors(crownGeometry)
+      setClearanceResult(null)
+      setError('')
+    } catch (e) { setError(e?.message || 'Unable to load the opposing scan.') }
+    finally { setBusy(false) }
+  }
+
+  const clearClearanceAnalysis = () => {
+    clearOcclusionColors(crownGeometry)
+    setClearanceResult(null)
+  }
+  const runClearanceAnalysis = () => {
+    try {
+      if (!crownGeometry || !opposingGeometry) throw new Error('Generate a crown and load an opposing scan first.')
+      clearOcclusionColors(crownGeometry)
+      const result = analyzeOcclusionClearance(crownGeometry, opposingGeometry, opposingOffset, clearanceThreshold)
+      setClearanceResult(result)
+      setShowCrown(true)
+      setError('')
+    } catch (e) { setError(e?.message || 'Unable to analyse crown clearance.') }
+  }
 
   const fitModel = () => {
     const controls = controlsRef.current
@@ -251,6 +315,12 @@ function App() {
   }
   const clearModel = () => {
     geometryRef.current?.dispose()
+    opposingGeometry?.dispose()
+    setOpposingGeometry(null)
+    setOpposingInfo(null)
+    setOpposingOffset([0, 0, 0])
+    clearOcclusionColors(crownGeometry)
+    setClearanceResult(null)
     geometryRef.current = null
     setGeometry(null)
     setFileInfo(null)
@@ -346,6 +416,7 @@ function App() {
   }
   const generateCrown = () => {
     try {
+      clearClearanceAnalysis()
       const referenceCenter = new THREE.Vector3(0, 0, 0)
       const generated = generateCrownGeometry(marginPoints, cementGap, wallThickness, crownHeight, referenceCenter)
       const next = createSculptableGeometry(generated, 2)
@@ -363,6 +434,7 @@ function App() {
   }
   const beginCrownSculpt = () => {
     if (!crownGeometry) return
+    clearClearanceAnalysis()
     sculptHistory.current.push(crownGeometry.clone())
     if (sculptHistory.current.length > 12) sculptHistory.current.shift()?.dispose()
     sculptingRef.current = true
@@ -443,7 +515,7 @@ function App() {
           <div className="viewport-controls"><button className="tool-action-button import-toolbar-button" onClick={() => inputRef.current?.click()}><Upload size={14} /> Import</button><button className={`tool-action-button ${marginMode ? 'active' : ''}`} onClick={() => { setMarginMode(value => !value); setMeasurementMode(false) }} disabled={!geometry} title="Click points on the mesh to trace its margin"><PenTool size={14} /> {marginMode ? 'Finish tracing' : 'Trace margin'}</button><button className={`tool-action-button ${measurementMode ? 'active' : ''}`} onClick={() => { setMeasurementMode(value => !value); setMarginMode(false) }} disabled={!geometry} title="Pick two points to measure their 3D distance"><Ruler size={14} /> Measure</button><span className="toolbar-label">DISPLAY</span><IconButton icon={Grid3X3} label="Toggle grid" active={showGrid} onClick={() => setShowGrid(v => !v)} /><IconButton icon={wireframe ? Eye : Layers3} label="Toggle wireframe" active={wireframe} onClick={() => setWireframe(v => !v)} /><span className="toolbar-divider" /><IconButton icon={Maximize2} label="Fit model" onClick={fitModel} disabled={!geometry} /><IconButton icon={EyeOff} label="Toggle inspector" active={showInspector} onClick={() => setShowInspector(v => !v)} /></div>
         </div>
         <div className={`viewport ${dragging ? 'dragging' : ''}`} onDragOver={e => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={handleDrop}>
-          <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, alpha: false, localClippingEnabled: true }} onPointerMissed={() => setSelected(false)}><ViewerScene geometry={geometry} dieGeometry={dieGeometry} crownGeometry={crownGeometry} showDie={showDie} showCrown={showCrown} wireframe={wireframe} showGrid={showGrid} color={color} opacity={opacity} controlsRef={controlsRef} activeTool={activeTool} selected={selected} onSelect={() => setSelected(true)} marginMode={marginMode} marginPoints={marginPoints} marginClosed={marginClosed} suggestedMarginPoints={suggestedMarginPoints} onAddMarginPoint={addMarginPoint} measurementMode={measurementMode} measurementPoints={measurementPoints} onAddMeasurementPoint={addMeasurementPoint} sectionEnabled={sectionEnabled} sectionAxis={sectionAxis} sectionOffset={sectionOffset} sectionSize={sectionSize} clippingPlane={clippingPlane} sculptMode={sculptMode} onSculptStart={beginCrownSculpt} onSculpt={applyCrownSculpt} onSculptEnd={endCrownSculpt} /></Canvas>
+          <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, alpha: false, localClippingEnabled: true }} onPointerMissed={() => setSelected(false)}><ViewerScene geometry={geometry} dieGeometry={dieGeometry} crownGeometry={crownGeometry} opposingGeometry={opposingGeometry} opposingOffset={opposingOffset} clearanceActive={Boolean(clearanceResult)} showDie={showDie} showCrown={showCrown} wireframe={wireframe} showGrid={showGrid} color={color} opacity={opacity} controlsRef={controlsRef} activeTool={activeTool} selected={selected} onSelect={() => setSelected(true)} marginMode={marginMode} marginPoints={marginPoints} marginClosed={marginClosed} suggestedMarginPoints={suggestedMarginPoints} onAddMarginPoint={addMarginPoint} measurementMode={measurementMode} measurementPoints={measurementPoints} onAddMeasurementPoint={addMeasurementPoint} sectionEnabled={sectionEnabled} sectionAxis={sectionAxis} sectionOffset={sectionOffset} sectionSize={sectionSize} clippingPlane={clippingPlane} sculptMode={sculptMode} onSculptStart={beginCrownSculpt} onSculpt={applyCrownSculpt} onSculptEnd={endCrownSculpt} /></Canvas>
           {!geometry && <div className="empty-state"><div className="empty-icon"><ScanLine size={28} strokeWidth={1.35} /></div><div className="empty-eyebrow">3D MODEL VIEWPORT</div><h1>Your workspace is ready.</h1><p>Import a dental scan or mesh to begin inspecting your model in 3D.</p><button className="primary-button" onClick={() => inputRef.current?.click()}><Upload size={16} /> Import 3D file</button><div className="file-types"><span>STL</span><span>PLY</span><i /> Up to your browser's available memory</div></div>}
           {dragging && <div className="drop-overlay"><div><FileUp size={30} /><strong>Drop your mesh here</strong><span>STL or PLY files</span></div></div>}
           {geometry && <div className="model-chip"><span className="status-dot" /> {selected ? 'OBJECT SELECTED' : 'MODEL LOADED'} <span>/</span> {fileInfo?.format}</div>}
@@ -472,10 +544,12 @@ function App() {
         <div className="panel-section"><div className="section-title">MARGIN ASSIST <span className="info-tag">PHASE 4</span></div><div className="margin-tool-card margin-assist-card"><div className="margin-tool-heading"><WandSparkles size={15} /><strong>Curvature-guided refinement</strong><span>{marginSuggestionInfo ? `${marginSuggestionInfo.matched}/${marginSuggestionInfo.total}` : 'ASSISTED'}</span></div><p>Trace at least 8 points first. The tool searches nearby mesh curvature changes and previews suggested point snaps.</p><div className="margin-actions"><button className="mini-action primary" onClick={refineMargin} disabled={!geometry || marginPoints.length < 8 || busy}><WandSparkles size={13} /> Suggest refinements</button><button className="mini-action" onClick={() => { setSuggestedMarginPoints([]); setMarginSuggestionInfo(null) }} disabled={!suggestedMarginPoints.length}>Discard</button></div>{marginSuggestionInfo && <><div className="margin-assist-metrics"><span>Matched points</span><strong>{marginSuggestionInfo.matched} / {marginSuggestionInfo.total}</strong><span>Heuristic confidence</span><strong>{marginSuggestionInfo.confidence}%</strong></div><div className="margin-actions"><button className="mini-action primary" onClick={applyMarginSuggestions} disabled={!marginSuggestionInfo.matched}><Check size={13} /> Apply suggestions</button></div></>}<p className="footnote">Suggestions are based on local vertex-normal variation near your traced points. Review every point manually; this is not autonomous clinical margin detection.</p></div></div>
         <div className="panel-section"><div className="section-title">RESTORATION DESIGN <span className="info-tag">PHASE 3</span></div><div className="restoration-card"><div className="restoration-status"><span className={marginClosed && marginPoints.length >= 8 ? 'status-green' : 'status-muted'} />{marginClosed && marginPoints.length >= 8 ? `Margin ready · ${marginPoints.length} points` : 'Close a margin with at least 8 points to begin'}</div><div className="restoration-controls"><label><span>Die depth</span><strong>{dieDepth.toFixed(3)}</strong></label><input type="range" min={Math.max(Number(fileInfo?.dimensions?.[0] || 1) * 0.03, 0.01)} max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.8} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 500, 0.001)} value={dieDepth} onChange={e => setDieDepth(Number(e.target.value))} disabled={!geometry} /><label><span>Cement space</span><strong>{cementGap.toFixed(3)}</strong></label><input type="range" min="0" max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.03} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 1000, 0.0005)} value={cementGap} onChange={e => setCementGap(Number(e.target.value))} disabled={!geometry} /><label><span>Wall thickness</span><strong>{wallThickness.toFixed(3)}</strong></label><input type="range" min={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.005} max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.08} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 1000, 0.0005)} value={wallThickness} onChange={e => setWallThickness(Number(e.target.value))} disabled={!geometry} /><label><span>Crown height</span><strong>{crownHeight.toFixed(3)}</strong></label><input type="range" min={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.05} max={Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) * 0.5} step={Math.max(Math.max(...(fileInfo?.dimensions || ['1','1','1']).map(Number)) / 500, 0.001)} value={crownHeight} onChange={e => setCrownHeight(Number(e.target.value))} disabled={!geometry} /></div><div className="restoration-actions"><button className="mini-action" onClick={generateDie} disabled={!geometry || !marginClosed || marginPoints.length < 8}><Box size={13} /> Generate die</button><button className="mini-action primary" onClick={generateCrown} disabled={!geometry || !marginClosed || marginPoints.length < 8}><Layers3 size={13} /> Generate crown</button></div>{dieGeometry && <div className="restoration-result"><span>Preparation die generated</span><div><button className={showDie ? 'selected' : ''} onClick={() => setShowDie(v => !v)}>View</button><button onClick={() => exportRestoration(dieGeometry, 'die')}><Download size={12} /> STL</button></div></div>}{crownGeometry && <div className="restoration-result"><span>Crown shell generated</span><div><button className={showCrown ? 'selected' : ''} onClick={() => setShowCrown(v => !v)}>View</button><button onClick={() => exportRestoration(crownGeometry, 'crown')}><Download size={12} /> STL</button></div></div>}<p className="footnote">Creates an initial parametric die and crown shell from the manually traced margin. Dimensions use source units. This is a design prototype, not an anatomy-aware or clinically validated restoration.</p></div></div>
         <div className="panel-section"><div className="section-title">CROWN ANATOMY <span className="info-tag">PHASE 5</span></div><div className="margin-tool-card crown-sculpt-card" data-revision={sculptRevision}><div className="margin-tool-heading"><Brush size={15} /><strong>Interactive crown sculpting</strong><span>{sculptHistory.current.length} undo</span></div><p>{crownGeometry ? 'Select a brush and drag directly on the crown surface to shape its outer anatomy.' : 'Generate a crown first. The crown is subdivided to provide a denser surface for sculpting.'}</p><div className="sculpt-controls"><label>Brush mode<select value={sculptTool} onChange={event => setSculptTool(event.target.value)} disabled={!crownGeometry}><option value="raise">Add / raise</option><option value="lower">Reduce / lower</option><option value="smooth">Smooth</option></select></label><label><span>Brush radius</span><strong>{sculptBrushRadius.toFixed(2)} units</strong></label><input type="range" min="0.05" max="2" step="0.05" value={sculptBrushRadius} onChange={event => setSculptBrushRadius(Number(event.target.value))} disabled={!crownGeometry} /><label><span>Brush strength</span><strong>{Math.round(sculptStrength * 100)}%</strong></label><input type="range" min="0.02" max="0.6" step="0.01" value={sculptStrength} onChange={event => setSculptStrength(Number(event.target.value))} disabled={!crownGeometry} /></div><div className="margin-actions"><button className={`mini-action primary ${sculptMode ? 'sculpt-active' : ''}`} onClick={() => { setSculptMode(value => !value); endCrownSculpt() }} disabled={!crownGeometry}><Brush size={13} /> {sculptMode ? 'Finish sculpting' : 'Sculpt crown'}</button><button className="mini-action" onClick={undoCrownSculpt} disabled={!sculptHistory.current.length}><Undo2 size={13} /> Undo stroke</button><button className="mini-action" onClick={resetCrownShape} disabled={!crownGeometry}><Rotate3D size={13} /> Reset shape</button></div><p className="footnote">Brush edits affect the generated crown mesh only. This is manual surface shaping, not automatic cusp anatomy or validated occlusal design.</p></div></div>
+        <div className="panel-section"><div className="section-title">OCCLUSION & CLEARANCE <span className="info-tag">PHASE 6</span></div><div className="margin-tool-card occlusion-card"><div className="margin-tool-heading"><Crosshair size={15} /><strong>Opposing arch analysis</strong><span>{opposingInfo ? 'LOADED' : 'NEEDED'}</span></div><p>Load the opposing arch scan, position it with the XYZ offsets, then analyse the generated crown.</p><div className="margin-actions"><button className="mini-action primary" onClick={() => opposingInputRef.current?.click()}><Upload size={13} /> {opposingInfo ? 'Replace opposing scan' : 'Load opposing scan'}</button><button className="mini-action" onClick={() => { opposingGeometry?.dispose(); setOpposingGeometry(null); setOpposingInfo(null); clearClearanceAnalysis() }} disabled={!opposingGeometry}>Remove</button></div>{opposingInfo && <div className="occlusion-file"><span>Opposing mesh</span><strong>{opposingInfo.name}</strong><small>{opposingInfo.vertices.toLocaleString()} vertices · centered for alignment</small></div>}<div className="occlusion-controls"><label>Contact / clearance threshold<strong>{clearanceThreshold.toFixed(3)} source units</strong></label><input type="range" min="0.01" max={Math.max(Number(fileInfo?.dimensions?.[0] || 1) * 0.05, 0.02)} step={Math.max(Number(fileInfo?.dimensions?.[0] || 1) / 1000, 0.001)} value={clearanceThreshold} onChange={event => { setClearanceThreshold(Number(event.target.value)); clearClearanceAnalysis() }} disabled={!opposingGeometry || !crownGeometry} /><span className="occlusion-subheading">OPPOSING SCAN ALIGNMENT</span><div className="occlusion-offset-grid">{['X','Y','Z'].map((axis,index) => <label key={axis}>{axis}<input type="number" step="0.1" value={opposingOffset[index]} onChange={event => { const next = [...opposingOffset]; next[index] = Number(event.target.value); setOpposingOffset(next); clearClearanceAnalysis() }} /></label>)}</div></div><div className="margin-actions"><button className="mini-action primary" onClick={runClearanceAnalysis} disabled={!crownGeometry || !opposingGeometry}><Crosshair size={13} /> Analyse clearance</button><button className="mini-action" onClick={clearClearanceAnalysis} disabled={!clearanceResult}>Clear map</button></div>{clearanceResult && <div className="occlusion-results"><div><span>Minimum vertex distance</span><strong>{clearanceResult.minimum === null ? 'N/A' : clearanceResult.minimum.toFixed(4)}</strong></div><div><span>Average distance</span><strong>{clearanceResult.average === null ? 'N/A' : clearanceResult.average.toFixed(4)}</strong></div><div><span>Near-contact vertices</span><strong>{clearanceResult.nearContactVertices.toLocaleString()}</strong></div><div><span>Evaluated crown vertices</span><strong>{clearanceResult.evaluatedVertices.toLocaleString()}</strong></div><div className="occlusion-legend"><span><i className="clearance-red" /> Near / threshold</span><span><i className="clearance-yellow" /> Transition</span><span><i className="clearance-green" /> Greater clearance</span></div></div>}<p className="footnote">Color map: red is at or below the selected proximity threshold, yellow is within twice that threshold, and green is farther away. Distances use nearest sampled vertices, not exact triangle-surface or signed collision distances. Align the opposing scan manually. This is an estimate, not validated occlusion or clinical contact analysis.</p></div></div>
         <div className="panel-footer"><div className="privacy-icon"><ShieldCheck size={15} /></div><div><strong>Private by design</strong><span>Your mesh is processed locally in this browser.</span></div></div>
       </aside>}
     </main>
     <input ref={inputRef} type="file" accept=".stl,.ply,model/stl,application/octet-stream" hidden onChange={e => { loadFile(e.target.files?.[0]); e.target.value = '' }} />
+    <input ref={opposingInputRef} type="file" accept=".stl,.ply,model/stl,application/octet-stream" hidden onChange={e => { loadOpposingFile(e.target.files?.[0]); e.target.value = '' }} />
     {helpOpen && <div className="help-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setHelpOpen(false) }}><section className="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title"><div className="help-dialog-heading"><div><span className="panel-kicker">DENTALCAD STUDIO</span><h2 id="help-title">Viewer controls</h2></div><button type="button" className="help-close" onClick={() => setHelpOpen(false)} aria-label="Close help">×</button></div><div className="help-grid"><div><strong>Measure</strong><span>Choose Measure, then click two points on the mesh to read their 3D distance.</span></div><div><strong>Cross section</strong><span>Enable a clipping plane and move it along the selected axis in the inspector.</span></div><div><strong>Orbit</strong><span>Left-drag or choose Orbit in the tool rail.</span></div><div><strong>Pan</strong><span>Right-drag, or choose Pan then left-drag.</span></div><div><strong>Zoom</strong><span>Scroll or use the + / − controls.</span></div><div><strong>Standard views</strong><span>Use the view buttons at the top-right of the viewport.</span></div><div><strong>Select</strong><span>Choose Select, then click the loaded mesh.</span></div><div><strong>Import</strong><span>Choose Import or drop an STL / PLY file into the viewport.</span></div></div><p className="help-note">Mesh files are parsed locally in your browser. Very large scans depend on available device memory.</p><button className="primary-button help-done" type="button" onClick={() => setHelpOpen(false)}>Got it</button></section></div>}
     <footer className="statusbar"><div><span className="status-green" /> SYSTEM READY <span className="status-divider">|</span> WEBGL</div><div><span>{activeTool.toUpperCase()} TOOL</span><span className="status-divider">|</span><span>SOURCE UNITS</span><span className="status-divider">|</span><span>LOCAL SESSION</span></div></footer>
   </div>
