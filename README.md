@@ -61,7 +61,7 @@ npm run preview
 - Cross-section mode clips the visible mesh but does not generate a capped section solid.
 - Mesh quality checks are estimates and do not certify a mesh for clinical use or manufacturing.
 - Large meshes are limited by the browser and device memory available.
-- This is an early frontend prototype. Full automatic margin detection, advanced anatomy sculpting, contact / occlusion analysis, and robust manufacturing-grade mesh repair are not implemented.
+- This is an early frontend prototype. Fully automatic margin detection, anatomy-aware crown generation, clinically valid contact / occlusion solving, robust manufacturing-grade mesh repair, exact fit analysis, and manufacturing-process validation are not implemented.
 
 
 ## Phase 5 — Crown anatomy sculpting
