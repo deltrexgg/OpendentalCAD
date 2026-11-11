@@ -62,3 +62,14 @@ npm run preview
 - Mesh quality checks are estimates and do not certify a mesh for clinical use or manufacturing.
 - Large meshes are limited by the browser and device memory available.
 - This is an early frontend prototype. Full automatic margin detection, advanced anatomy sculpting, contact / occlusion analysis, and robust manufacturing-grade mesh repair are not implemented.
+
+
+## Phase 5 — Crown anatomy sculpting
+
+- Generate a denser crown surface by subdividing the initial parametric crown mesh.
+- Enter crown sculpt mode and drag directly on the crown surface with an adjustable brush radius and strength.
+- Use **Add / raise**, **Reduce / lower**, and **Smooth** brush modes to shape the external crown surface.
+- Undo the previous sculpt stroke or regenerate the original parametric crown shape.
+- Sculpting is local in the browser and changes the crown mesh used for STL export.
+
+Phase 5 provides manual outer-surface shaping only. It does not automatically create anatomically correct cusps, grooves, proximal contacts, or occlusal relationships, and it is not clinically validated. Brush dimensions use the loaded scan's source units.
