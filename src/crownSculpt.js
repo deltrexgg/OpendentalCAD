@@ -37,6 +37,7 @@ export function createSculptableGeometry(source, levels = 2) {
     adjacency[c].add(a); adjacency[c].add(b)
   }
   geometry.userData.sculptAdjacency = adjacency
+  if (source.userData?.anatomyFrame) geometry.userData.anatomyFrame = JSON.parse(JSON.stringify(source.userData.anatomyFrame))
   return geometry
 }
 
