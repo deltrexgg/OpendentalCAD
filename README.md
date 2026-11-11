@@ -120,3 +120,15 @@ Phase 8 is a procedural, generic four-cusp shaping aid. It does not identify too
 - Displays sampled surface-gap statistics and near-contact sample counts; invalidates fit results when the crown or preparation geometry changes.
 
 Phase 9 provides geometric screening estimates only. Triangle candidates and crown vertices are sampled for browser performance; distances are unsigned and may miss local defects or contacts. It does not detect signed penetration, determine contact forces, validate margin integrity or cement-space uniformity, or establish clinical acceptability. The selected tolerance is user-defined and remains in source-file units. Results require manual review by a qualified dental professional and are not a clinical certification.
+
+
+## Phase 10 — Manufacturing handoff workflow
+
+- Adds a final handoff panel for the selected generated crown or preparation die.
+- Requires the operator to explicitly declare the source scan units (mm, cm, or inches); the application does not infer or convert units.
+- Requires an operator confirmation that the restoration has been visually reviewed and that the geometric checks are estimates.
+- Re-runs the manufacturing topology preflight at report-export time and blocks the report when the selected restoration fails.
+- Exports a structured JSON handoff report containing source-scan metadata, declared units, restoration parameters, margin coordinates, topology results, estimated wall-thickness data, and available fit / clearance assessment summaries.
+- Records the matching STL filename in the report. The STL is exported separately from the Restoration Design panel.
+
+The handoff report improves traceability but is not a production certification. A passed preflight does not establish clinical suitability, exact fit, minimum wall thickness, absence of self-intersections, or machine compatibility. Fit and occlusion metrics remain sampled, unsigned estimates. Verify the STL in validated dental CAD/CAM software and follow the manufacturing provider's specifications. No unit conversion is performed.
