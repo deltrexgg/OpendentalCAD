@@ -71,3 +71,14 @@
 .margin-assist-card .margin-tool-heading{color:#71d8c5}
 .margin-assist-metrics{display:grid;grid-template-columns:1fr auto;gap:7px;padding:9px 0;margin-top:10px;border-top:1px solid #2c3d44;font-size:9px;color:#8fa3a7}
 .margin-assist-metrics strong{font:9px 'DM Mono',monospace;color:#cce5df}
+
+
+/* Phase 5 crown anatomy sculpting */
+.crown-sculpt-card .margin-tool-heading{color:#d7b47f}
+.sculpt-controls{display:grid;gap:7px;margin:10px 0}
+.sculpt-controls label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:9px;color:#91a2a8}
+.sculpt-controls label strong{font:9px 'DM Mono',monospace;color:#c9d9d8}
+.sculpt-controls select{max-width:145px;height:26px;padding:0 7px;border:1px solid #354850;border-radius:4px;background:#131e26;color:#c5d5d7;font-size:9px}
+.sculpt-controls input[type=range]{width:100%;accent-color:#c59d68}
+.sculpt-mode-hint{border-color:#b08a58;background:#392e22e8;color:#f2d3a5}
+.sculpt-active{border-color:#c59d68!important;background:#5a4428!important;color:#fff0d3!important}
