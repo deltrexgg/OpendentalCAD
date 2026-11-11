@@ -123,3 +123,14 @@
 .anatomy-controls label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:9px;color:#91a2a8}
 .anatomy-controls label strong{font:9px 'DM Mono',monospace;color:#c9d9d8}
 .anatomy-controls input[type=range]{width:100%;accent-color:#55bba9}
+
+
+/* Phase 9 fit and surface validation estimates */
+.fit-assessment-card .margin-tool-heading{color:#b9a5e8}
+.fit-controls{display:grid;gap:7px;margin:10px 0}
+.fit-controls label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:9px;color:#91a2a8}
+.fit-controls label strong{font:9px 'DM Mono',monospace;color:#d8cfee}
+.fit-controls input[type=range]{width:100%;accent-color:#aa91df}
+.fit-results{display:grid;gap:8px;padding:10px 0;margin-top:10px;border-top:1px solid #2c3d44}
+.fit-results>div{display:flex;justify-content:space-between;gap:8px;font-size:9px;color:#8fa3a7}
+.fit-results strong{max-width:58%;text-align:right;font:9px 'DM Mono',monospace;color:#d8d2eb}
