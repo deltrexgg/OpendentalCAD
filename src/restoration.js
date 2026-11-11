@@ -133,5 +133,13 @@ export function generateCrownGeometry(points, cementGap, thickness, height, refe
   geometry.computeVertexNormals()
   geometry.computeBoundingBox()
   geometry.computeBoundingSphere()
+  geometry.userData.anatomyFrame = {
+    center: frame.center.toArray(),
+    normal: frame.normal.toArray(),
+    u: frame.radial[0].clone().normalize().toArray(),
+    v: new THREE.Vector3().crossVectors(frame.normal, frame.radial[0]).normalize().toArray(),
+    height: crownHeight,
+    radius: frame.averageRadius,
+  }
   return geometry
 }
