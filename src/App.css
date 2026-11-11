@@ -134,3 +134,11 @@
 .fit-results{display:grid;gap:8px;padding:10px 0;margin-top:10px;border-top:1px solid #2c3d44}
 .fit-results>div{display:flex;justify-content:space-between;gap:8px;font-size:9px;color:#8fa3a7}
 .fit-results strong{max-width:58%;text-align:right;font:9px 'DM Mono',monospace;color:#d8d2eb}
+
+
+/* Phase 10 manufacturing handoff */
+.handoff-card .margin-tool-heading{color:#8ac9b4}
+.handoff-controls{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:8px;margin:10px 0;font-size:9px;color:#91a2a8}
+.handoff-controls select{height:28px;min-width:0;padding:0 7px;border:1px solid #3b625b;border-radius:4px;background:#131e26;color:#cde3dc;font-size:9px}
+.handoff-confirm{display:flex;align-items:flex-start;gap:8px;margin:11px 0;color:#aab9bb;font-size:9px;line-height:1.5}
+.handoff-confirm input{margin:1px 0 0;accent-color:#55bba9;flex-shrink:0}
