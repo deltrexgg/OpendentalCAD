@@ -62,3 +62,26 @@ npm run preview
 - Mesh quality checks are estimates and do not certify a mesh for clinical use or manufacturing.
 - Large meshes are limited by the browser and device memory available.
 - This is an early frontend prototype. Full automatic margin detection, advanced anatomy sculpting, contact / occlusion analysis, and robust manufacturing-grade mesh repair are not implemented.
+
+
+## Phase 5 — Crown anatomy sculpting
+
+- Generate a denser crown surface by subdividing the initial parametric crown mesh.
+- Enter crown sculpt mode and drag directly on the crown surface with an adjustable brush radius and strength.
+- Use **Add / raise**, **Reduce / lower**, and **Smooth** brush modes to shape the external crown surface.
+- Undo the previous sculpt stroke or regenerate the original parametric crown shape.
+- Sculpting is local in the browser and changes the crown mesh used for STL export.
+
+Phase 5 provides manual outer-surface shaping only. It does not automatically create anatomically correct cusps, grooves, proximal contacts, or occlusal relationships, and it is not clinically validated. Brush dimensions use the loaded scan's source units.
+
+
+## Phase 6 — Occlusion and clearance analysis
+
+- Load a separate opposing-arch STL / PLY scan and display it as a translucent overlay.
+- Adjust X / Y / Z offsets to manually align the opposing scan with the generated crown.
+- Analyse crown-to-opposing-scan proximity using a nearest-sampled-vertex spatial grid.
+- Display an estimated clearance heat map on the crown: red at / below the selected threshold, yellow within twice the threshold, and green beyond it.
+- Report minimum and average sampled-vertex distance and the number of crown vertices within the selected near-contact threshold.
+- Re-run the analysis after changing alignment, threshold, or crown sculpting.
+
+Phase 6 is an interactive geometric proximity aid, not a clinical occlusion solver. Distances are nearest sampled-vertex estimates rather than exact point-to-triangle surface distances; they are unsigned and cannot reliably detect mesh intersection. The opposing arch must be manually aligned, and the results depend on scan density, orientation, and source units. It does not establish clinically valid contacts, occlusal forces, or manufacturing readiness.
