@@ -663,7 +663,7 @@ function App() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `${(fileInfo?.name || 'dental-case').replace(/\\.[^.]+$/, '')}-${manufacturingTarget}-manufacturing-report.json`
+      link.download = `${(fileInfo?.name || 'dental-case').replace(/\.[^.]+$/, '')}-${manufacturingTarget}-manufacturing-report.json`
       document.body.appendChild(link)
       link.click()
       link.remove()
