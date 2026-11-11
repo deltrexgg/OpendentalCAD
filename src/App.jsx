@@ -12,6 +12,7 @@ import { createSculptableGeometry, sculptCrownGeometry } from './crownSculpt.js'
 import { analyzeOcclusionClearance, clearOcclusionColors } from './occlusionAnalysis.js'
 import { analyzeManufacturingMesh } from './manufacturingAnalysis.js'
 import { applyAnatomicalForm } from './crownAnatomy.js'
+import { analyzeRestorationFit } from './fitAnalysis.js'
 import {
   Activity, Box, CircleHelp, Check, Crosshair, Download, Eye, EyeOff, FileUp,
   Grid3X3, Layers3, Maximize2, MousePointer2, Move3D, PenTool, Rotate3D, ScanLine,
@@ -123,6 +124,8 @@ function App() {
   const [opposingOffset, setOpposingOffset] = useState([0, 0, 0])
   const [clearanceThreshold, setClearanceThreshold] = useState(0.1)
   const [clearanceResult, setClearanceResult] = useState(null)
+  const [fitTolerance, setFitTolerance] = useState(0.05)
+  const [fitResult, setFitResult] = useState(null)
   const [manufacturingTarget, setManufacturingTarget] = useState('crown')
   const [manufacturingResult, setManufacturingResult] = useState(null)
   const [sculptMode, setSculptMode] = useState(false)
@@ -199,6 +202,7 @@ function App() {
       setOpposingInfo(null)
       setOpposingOffset([0, 0, 0])
       setClearanceResult(null)
+      setFitResult(null)
       setManufacturingResult(null)
       dieGeometry?.dispose()
       crownGeometry?.dispose()
@@ -211,6 +215,7 @@ function App() {
       setShowCrown(true)
       const designScale = Math.max(size.x, size.y, size.z)
       setCementGap(designScale * 0.005)
+      setFitTolerance(designScale * 0.005)
       setWallThickness(designScale * 0.025)
       setCrownHeight(designScale * 0.2)
       setDieDepth(designScale * 0.3)
@@ -284,6 +289,15 @@ function App() {
     } catch (e) { setError(e?.message || 'Unable to analyse crown clearance.') }
   }
 
+  const runFitAnalysis = () => {
+    try {
+      if (!crownGeometry || !geometry) throw new Error('Generate a crown and load the preparation scan before checking fit.')
+      const result = analyzeRestorationFit(crownGeometry, geometry, fitTolerance)
+      setFitResult(result)
+      setError('')
+    } catch (e) { setError(e?.message || 'Unable to analyse restoration fit.') }
+  }
+
   const runManufacturingCheck = () => {
     try {
       const targetGeometry = manufacturingTarget === 'die' ? dieGeometry : crownGeometry
@@ -339,6 +353,7 @@ function App() {
     setOpposingOffset([0, 0, 0])
     clearOcclusionColors(crownGeometry)
     setClearanceResult(null)
+    setFitResult(null)
     setManufacturingResult(null)
     geometryRef.current = null
     setGeometry(null)
@@ -378,6 +393,7 @@ function App() {
     setMarginPoints(points => [...points, point.clone()])
   }, [marginClosed])
   const undoMarginPoint = () => {
+    setFitResult(null)
     setManufacturingResult(null)
     dieGeometry?.dispose()
     crownGeometry?.dispose()
@@ -389,6 +405,7 @@ function App() {
     setMarginSuggestionInfo(null)
   }
   const clearMargin = () => {
+    setFitResult(null)
     setManufacturingResult(null)
     dieGeometry?.dispose()
     crownGeometry?.dispose()
@@ -415,6 +432,7 @@ function App() {
   }
   const applyMarginSuggestions = () => {
     if (!suggestedMarginPoints.length) return
+    setFitResult(null)
     setManufacturingResult(null)
     dieGeometry?.dispose()
     crownGeometry?.dispose()
@@ -439,6 +457,7 @@ function App() {
   }
   const generateCrown = () => {
     try {
+      setFitResult(null)
       setManufacturingResult(null)
       clearClearanceAnalysis()
       const referenceCenter = new THREE.Vector3(0, 0, 0)
@@ -458,6 +477,7 @@ function App() {
   }
   const beginCrownSculpt = () => {
     if (!crownGeometry) return
+    setFitResult(null)
     setManufacturingResult(null)
     clearClearanceAnalysis()
     sculptHistory.current.push(crownGeometry.clone())
@@ -474,6 +494,7 @@ function App() {
   const applyCrownAnatomy = () => {
     if (!crownGeometry) return
     try {
+      setFitResult(null)
       setManufacturingResult(null)
       clearClearanceAnalysis()
       setSculptMode(false)
@@ -491,6 +512,7 @@ function App() {
     }
   }
   const undoCrownSculpt = () => {
+    setFitResult(null)
     setManufacturingResult(null)
     clearClearanceAnalysis()
     const previous = sculptHistory.current.pop()
@@ -612,6 +634,14 @@ function App() {
           </div>
           <div className="margin-actions"><button className="mini-action primary" onClick={applyCrownAnatomy} disabled={!crownGeometry}><WandSparkles size={13} /> Apply anatomical form</button><button className="mini-action" onClick={undoCrownSculpt} disabled={!crownGeometry || !sculptHistory.current.length}><Undo2 size={13} /> Undo</button><button className="mini-action" onClick={resetCrownShape} disabled={!crownGeometry}><Rotate3D size={13} /> Reset crown</button></div>
           <p className="footnote">This generic four-cusp template is not tooth-specific. It does not infer tooth type, natural anatomy, opposing contacts, or functional occlusion. Inspect and sculpt the result manually; clinical validation is not provided.</p>
+        </div></div>
+        <div className="panel-section"><div className="section-title">FIT ASSESSMENT <span className="info-tag">PHASE 9</span></div><div className="margin-tool-card fit-assessment-card">
+          <div className="margin-tool-heading"><Crosshair size={15} /><strong>Intaglio-to-preparation fit</strong><span>{fitResult ? "ANALYSED" : "NOT CHECKED"}</span></div>
+          <p>Compare sampled crown intaglio vertices with sampled surface triangles from the loaded preparation scan.</p>
+          <div className="fit-controls"><label><span>User tolerance</span><strong>{fitTolerance.toFixed(4)} source units</strong></label><input type="range" min={Math.max(Number(fileInfo?.dimensions?.[0] || 1) * 0.0005, 0.001)} max={Math.max(Number(fileInfo?.dimensions?.[0] || 1) * 0.03, 0.01)} step={Math.max(Number(fileInfo?.dimensions?.[0] || 1) / 2000, 0.0005)} value={fitTolerance} onChange={event => { setFitTolerance(Number(event.target.value)); setFitResult(null) }} disabled={!geometry || !crownGeometry} /></div>
+          <div className="margin-actions"><button className="mini-action primary" onClick={runFitAnalysis} disabled={!geometry || !crownGeometry}><Crosshair size={13} /> Analyse fit</button><button className="mini-action" onClick={() => setFitResult(null)} disabled={!fitResult}>Clear results</button></div>
+          {fitResult && <div className="fit-results"><div><span>Mean surface gap</span><strong>{fitResult.average.toFixed(4)}</strong></div><div><span>Median surface gap</span><strong>{fitResult.median.toFixed(4)}</strong></div><div><span>95th percentile gap</span><strong>{fitResult.percentile95.toFixed(4)}</strong></div><div><span>Minimum / maximum</span><strong>{fitResult.minimum.toFixed(4)} / {fitResult.maximum.toFixed(4)}</strong></div><div><span>Samples within tolerance</span><strong>{fitResult.withinTolerance.toLocaleString()} / {fitResult.samples.toLocaleString()} ({fitResult.withinTolerancePercent.toFixed(1)}%)</strong></div><div><span>Preparation triangles sampled</span><strong>{fitResult.sampledPreparationTriangles.toLocaleString()}</strong></div><div><span>Unmatched intaglio samples</span><strong>{fitResult.unmatchedSamples.toLocaleString()}</strong></div></div>}
+          <p className="footnote">This is an unsigned proximity estimate using a sampled subset of preparation triangles and crown intaglio vertices. It cannot identify penetration direction, exact surface fit, margin integrity, cement-space quality, or clinical acceptability. Values use source-file units; review the result with a qualified dental professional.</p>
         </div></div>
         <div className="panel-section"><div className="section-title">OCCLUSION & CLEARANCE <span className="info-tag">PHASE 6</span></div><div className="margin-tool-card occlusion-card"><div className="margin-tool-heading"><Crosshair size={15} /><strong>Opposing arch analysis</strong><span>{opposingInfo ? 'LOADED' : 'NEEDED'}</span></div><p>Load the opposing arch scan, position it with the XYZ offsets, then analyse the generated crown.</p><div className="margin-actions"><button className="mini-action primary" onClick={() => opposingInputRef.current?.click()}><Upload size={13} /> {opposingInfo ? 'Replace opposing scan' : 'Load opposing scan'}</button><button className="mini-action" onClick={() => { opposingGeometry?.dispose(); setOpposingGeometry(null); setOpposingInfo(null); clearClearanceAnalysis() }} disabled={!opposingGeometry}>Remove</button></div>{opposingInfo && <div className="occlusion-file"><span>Opposing mesh</span><strong>{opposingInfo.name}</strong><small>{opposingInfo.vertices.toLocaleString()} vertices · centered for alignment</small></div>}<div className="occlusion-controls"><label>Contact / clearance threshold<strong>{clearanceThreshold.toFixed(3)} source units</strong></label><input type="range" min="0.01" max={Math.max(Number(fileInfo?.dimensions?.[0] || 1) * 0.05, 0.02)} step={Math.max(Number(fileInfo?.dimensions?.[0] || 1) / 1000, 0.001)} value={clearanceThreshold} onChange={event => { setClearanceThreshold(Number(event.target.value)); clearClearanceAnalysis() }} disabled={!opposingGeometry || !crownGeometry} /><span className="occlusion-subheading">OPPOSING SCAN ALIGNMENT</span><div className="occlusion-offset-grid">{['X','Y','Z'].map((axis,index) => <label key={axis}>{axis}<input type="number" step="0.1" value={opposingOffset[index]} onChange={event => { const next = [...opposingOffset]; next[index] = Number(event.target.value); setOpposingOffset(next); clearClearanceAnalysis() }} /></label>)}</div></div><div className="margin-actions"><button className="mini-action primary" onClick={runClearanceAnalysis} disabled={!crownGeometry || !opposingGeometry}><Crosshair size={13} /> Analyse clearance</button><button className="mini-action" onClick={clearClearanceAnalysis} disabled={!clearanceResult}>Clear map</button></div>{clearanceResult && <div className="occlusion-results"><div><span>Minimum vertex distance</span><strong>{clearanceResult.minimum === null ? 'N/A' : clearanceResult.minimum.toFixed(4)}</strong></div><div><span>Average distance</span><strong>{clearanceResult.average === null ? 'N/A' : clearanceResult.average.toFixed(4)}</strong></div><div><span>Near-contact vertices</span><strong>{clearanceResult.nearContactVertices.toLocaleString()}</strong></div><div><span>Evaluated crown vertices</span><strong>{clearanceResult.evaluatedVertices.toLocaleString()}</strong></div><div className="occlusion-legend"><span><i className="clearance-red" /> Near / threshold</span><span><i className="clearance-yellow" /> Transition</span><span><i className="clearance-green" /> Greater clearance</span></div></div>}<p className="footnote">Color map: red is at or below the selected proximity threshold, yellow is within twice that threshold, and green is farther away. Distances use nearest sampled vertices, not exact triangle-surface or signed collision distances. Align the opposing scan manually. This is an estimate, not validated occlusion or clinical contact analysis.</p></div></div>
         <div className="panel-section"><div className="section-title">MANUFACTURING PREPARATION <span className="info-tag">PHASE 7</span></div><div className="margin-tool-card manufacturing-card"><div className="margin-tool-heading"><ShieldCheck size={15} /><strong>STL mesh preflight</strong><span>{manufacturingResult ? (manufacturingResult.exportPreflight ? 'TOPOLOGY OK' : 'ISSUES FOUND') : 'NOT CHECKED'}</span></div><p>Check a generated crown or die for open edges, non-manifold edges, winding conflicts, degenerate faces, duplicate faces, and invalid triangles before STL export.</p><div className="manufacturing-controls"><label htmlFor="manufacturing-target">Restoration</label><select id="manufacturing-target" value={manufacturingTarget} onChange={event => { setManufacturingTarget(event.target.value); setManufacturingResult(null) }}><option value="crown" disabled={!crownGeometry}>Crown</option><option value="die" disabled={!dieGeometry}>Preparation die</option></select></div><div className="margin-actions"><button className="mini-action primary" onClick={runManufacturingCheck} disabled={manufacturingTarget === 'die' ? !dieGeometry : !crownGeometry}><ShieldCheck size={13} /> Run preflight</button></div>{manufacturingResult && <div className="manufacturing-results"><div><span>Topology preflight</span><strong className={manufacturingResult.exportPreflight ? 'quality-good' : 'quality-warn'}>{manufacturingResult.exportPreflight ? 'Passed' : 'Failed'}</strong></div><div><span>Boundary edges</span><strong>{manufacturingResult.boundaryEdges.toLocaleString()}</strong></div><div><span>Non-manifold edges</span><strong>{manufacturingResult.nonManifoldEdges.toLocaleString()}</strong></div><div><span>Winding conflicts</span><strong>{manufacturingResult.windingConflicts.toLocaleString()}</strong></div><div><span>Degenerate / duplicate faces</span><strong>{(manufacturingResult.degenerateFaces + manufacturingResult.duplicateFaces).toLocaleString()}</strong></div><div><span>Invalid triangles</span><strong>{manufacturingResult.invalidTriangles.toLocaleString()}</strong></div><div><span>Estimated minimum wall thickness</span><strong>{manufacturingResult.thickness.minimum === null ? 'Unavailable' : `${manufacturingResult.thickness.minimum.toFixed(4)} source units`}</strong></div><div><span>10th percentile thickness</span><strong>{manufacturingResult.thickness.percentile10 === null ? 'Unavailable' : `${manufacturingResult.thickness.percentile10.toFixed(4)} source units`}</strong></div><div><span>Thickness samples</span><strong>{manufacturingResult.thickness.samples.toLocaleString()} / {manufacturingResult.thickness.sampledVertices.toLocaleString()}</strong></div>{manufacturingResult.issues.length > 0 && <ul>{manufacturingResult.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}</div>}<p className="footnote">Wall thickness is a nearest opposing-normal vertex estimate, not a certified minimum-thickness calculation. No automatic repair, undercut detection, fit validation, or self-intersection test is performed. A passed topology preflight does not certify clinical or manufacturing readiness. All values use source-file units.</p></div></div>
