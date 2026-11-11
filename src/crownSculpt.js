@@ -5,6 +5,8 @@ function midpoint(a, b) { return new THREE.Vector3().addVectors(a, b).multiplySc
 export function createSculptableGeometry(source, levels = 2) {
   const sourcePosition = source.getAttribute('position')
   const positions = Array.from({ length: sourcePosition.count }, (_, i) => new THREE.Vector3().fromBufferAttribute(sourcePosition, i))
+  const sourceMask = source.getAttribute('intaglioMask')
+  const maskValues = sourceMask ? Array.from({ length: sourceMask.count }, (_, i) => sourceMask.getX(i)) : null
   let indices = source.index ? Array.from(source.index.array) : Array.from({ length: sourcePosition.count }, (_, i) => i)
   for (let level = 0; level < levels; level += 1) {
     const nextIndices = [], edgeCache = new Map()
@@ -13,6 +15,7 @@ export function createSculptableGeometry(source, levels = 2) {
       if (edgeCache.has(key)) return edgeCache.get(key)
       const index = positions.length
       positions.push(midpoint(positions[a], positions[b]))
+      if (maskValues) maskValues.push((maskValues[a] + maskValues[b]) * 0.5)
       edgeCache.set(key, index)
       return index
     }
@@ -26,6 +29,7 @@ export function createSculptableGeometry(source, levels = 2) {
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions.flatMap(point => point.toArray()), 3))
   geometry.setIndex(indices)
+  if (maskValues) geometry.setAttribute('intaglioMask', new THREE.Float32BufferAttribute(maskValues, 1))
   geometry.computeVertexNormals()
   geometry.computeBoundingBox()
   geometry.computeBoundingSphere()
@@ -37,6 +41,7 @@ export function createSculptableGeometry(source, levels = 2) {
     adjacency[c].add(a); adjacency[c].add(b)
   }
   geometry.userData.sculptAdjacency = adjacency
+  if (source.userData?.anatomyFrame) geometry.userData.anatomyFrame = JSON.parse(JSON.stringify(source.userData.anatomyFrame))
   return geometry
 }
 
@@ -53,6 +58,7 @@ export function sculptCrownGeometry(geometry, center, brushNormal, radius, stren
     const distance = vertex.distanceTo(center)
     if (distance >= safeRadius) continue
     const vertexNormal = new THREE.Vector3().fromBufferAttribute(normal, i)
+    if (geometry.getAttribute('intaglioMask')?.getX(i) >= 0.98) continue
     if (vertexNormal.dot(brushNormal) < 0.2) continue
     const t = 1 - distance / safeRadius, falloff = t * t * (3 - 2 * t), amount = safeStrength * falloff
     if (mode === 'smooth' && adjacency?.[i]?.size) {
