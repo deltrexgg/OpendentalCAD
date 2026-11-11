@@ -103,3 +103,15 @@
 .occlusion-legend span{display:flex;align-items:center;gap:4px;font-size:8px;color:#a2b2b7}
 .occlusion-legend i{width:7px;height:7px;border-radius:50%}
 .clearance-red{background:#ed716d}.clearance-yellow{background:#e9c36e}.clearance-green{background:#63c9a7}
+
+
+/* Phase 7 manufacturing preparation */
+.manufacturing-card .margin-tool-heading{color:#8ac9b4}
+.manufacturing-controls{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:8px;margin:10px 0;font-size:9px;color:#91a2a8}
+.manufacturing-controls select{height:27px;min-width:0;padding:0 7px;border:1px solid #354850;border-radius:4px;background:#131e26;color:#c5d5d7;font-size:9px}
+.manufacturing-results{display:grid;gap:8px;padding:10px 0;margin-top:10px;border-top:1px solid #2c3d44}
+.manufacturing-results>div{display:flex;justify-content:space-between;gap:8px;font-size:9px;color:#8fa3a7}
+.manufacturing-results strong{font:9px 'DM Mono',monospace;color:#d5e8e8;text-align:right}
+.manufacturing-results .quality-good{color:#78d7b8}
+.manufacturing-results .quality-warn{color:#e8b17f}
+.manufacturing-results ul{margin:2px 0 0;padding-left:17px;color:#e8b17f;font-size:9px;line-height:1.6}
