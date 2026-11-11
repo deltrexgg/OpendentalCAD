@@ -108,3 +108,15 @@ Phase 7 does not automatically repair meshes. The wall-thickness value is a near
 - Changes affect the crown geometry used by clearance analysis, manufacturing preflight, and STL export. Previous analysis results are invalidated when the form is applied.
 
 Phase 8 is a procedural, generic four-cusp shaping aid. It does not identify tooth type, reproduce patient-specific anatomy, model natural contacts, solve functional occlusion, or guarantee minimum wall thickness after deformation. The output must be reviewed and refined manually. It is not clinically validated and does not establish clinical or manufacturing readiness.
+
+
+## Phase 9 — Restoration fit and occlusal surface assessment
+
+- Tags the generated crown's inner intaglio surface and carries that mask through crown subdivision.
+- Protects the inner intaglio surface from the external crown sculpt brush.
+- Compares sampled intaglio vertices with a spatially sampled set of preparation-scan triangles and reports mean, median, 95th-percentile, minimum, and maximum unsigned surface gaps.
+- Reports the share of sampled intaglio vertices within a user-selected tolerance, in the source file's units.
+- Upgrades opposing-arch clearance analysis to compare sampled outer occlusal crown vertices against sampled opposing-scan triangles, rather than only comparing vertex-to-vertex distances.
+- Displays sampled surface-gap statistics and near-contact sample counts; invalidates fit results when the crown or preparation geometry changes.
+
+Phase 9 provides geometric screening estimates only. Triangle candidates and crown vertices are sampled for browser performance; distances are unsigned and may miss local defects or contacts. It does not detect signed penetration, determine contact forces, validate margin integrity or cement-space uniformity, or establish clinical acceptability. The selected tolerance is user-defined and remains in source-file units. Results require manual review by a qualified dental professional and are not a clinical certification.
