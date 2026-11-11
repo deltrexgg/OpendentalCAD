@@ -447,6 +447,7 @@ function App() {
   }
   const endCrownSculpt = () => { sculptingRef.current = false }
   const undoCrownSculpt = () => {
+    clearClearanceAnalysis()
     const previous = sculptHistory.current.pop()
     if (!previous) return
     crownGeometry?.dispose()
