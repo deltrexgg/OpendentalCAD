@@ -411,6 +411,7 @@ function App() {
   }
   const applyMarginSuggestions = () => {
     if (!suggestedMarginPoints.length) return
+    setManufacturingResult(null)
     dieGeometry?.dispose()
     crownGeometry?.dispose()
     setDieGeometry(null)
@@ -467,6 +468,7 @@ function App() {
   }
   const endCrownSculpt = () => { sculptingRef.current = false }
   const undoCrownSculpt = () => {
+    setManufacturingResult(null)
     clearClearanceAnalysis()
     const previous = sculptHistory.current.pop()
     if (!previous) return
