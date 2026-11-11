@@ -13,6 +13,7 @@ A browser-based dental mesh viewer built with React, Vite, Three.js, and React T
 - Refine a traced margin with curvature-guided point suggestions based on local vertex-normal variation; preview and accept or discard the suggestions.
 - Generate a tapered preparation die from a closed manual margin.
 - Generate an initial parametric crown shell with adjustable cement-space allowance, wall thickness, and crown height.
+- Apply a procedural four-cusp occlusal form with adjustable cusp height, central groove depth, and ridge height.
 - Export generated die and crown meshes as binary STL files.
 - Measure straight-line 3D distance between two picked points on the mesh.
 - Inspect a live X / Y / Z clipping plane to examine internal cross-sections.
@@ -61,7 +62,7 @@ npm run preview
 - Cross-section mode clips the visible mesh but does not generate a capped section solid.
 - Mesh quality checks are estimates and do not certify a mesh for clinical use or manufacturing.
 - Large meshes are limited by the browser and device memory available.
-- This is an early frontend prototype. Fully automatic margin detection, anatomy-aware crown generation, clinically valid contact / occlusion solving, robust manufacturing-grade mesh repair, exact fit analysis, and manufacturing-process validation are not implemented.
+- This is an early frontend prototype. Fully automatic margin detection, tooth-specific anatomy-aware crown generation, clinically valid contact / occlusion solving, robust manufacturing-grade mesh repair, exact fit analysis, and manufacturing-process validation are not implemented.
 
 
 ## Phase 5 — Crown anatomy sculpting
@@ -96,3 +97,14 @@ Phase 6 is an interactive geometric proximity aid, not a clinical occlusion solv
 - All analysis runs locally in the browser and uses source-file units.
 
 Phase 7 does not automatically repair meshes. The wall-thickness value is a nearest opposing-normal vertex estimate, not a certified minimum-thickness computation; sampling can miss thin regions. Undercut detection, exact surface-distance thickness, fit validation, self-intersection detection, and manufacturing-process simulation are not implemented. A passed topology preflight only means the implemented checks did not find the listed defects; it is not a clinical or manufacturing certification. No production build, browser interaction test, or representative dental-scan validation has been completed for this phase.
+
+
+## Phase 8 — Procedural crown anatomy assist
+
+- Adds an anatomy-assist panel for generated crowns with adjustable cusp height, central groove depth, and occlusal ridge height.
+- Applies a generic four-cusp occlusal surface form aligned to the crown frame derived from the traced preparation margin.
+- Stores the preparation frame through crown subdivision so anatomical shaping follows the margin orientation rather than assuming a fixed world axis.
+- Records the operation in the existing crown undo history; undo and reset remain available.
+- Changes affect the crown geometry used by clearance analysis, manufacturing preflight, and STL export. Previous analysis results are invalidated when the form is applied.
+
+Phase 8 is a procedural, generic four-cusp shaping aid. It does not identify tooth type, reproduce patient-specific anatomy, model natural contacts, solve functional occlusion, or guarantee minimum wall thickness after deformation. The output must be reviewed and refined manually. It is not clinically validated and does not establish clinical or manufacturing readiness.
