@@ -11,7 +11,10 @@ export function analyzeOcclusionClearance(crownGeometry, opposingGeometry, offse
 
   const maxSamples = 50000
   const stride = Math.max(1, Math.ceil(opposing.count / maxSamples))
-  const cellSize = Math.max(Number(threshold) * 2, 1e-5)
+  const crownBounds = crownGeometry.boundingBox || new THREE.Box3().setFromBufferAttribute(crown)
+  const opposingBounds = opposingGeometry.boundingBox || new THREE.Box3().setFromBufferAttribute(opposing)
+  const combinedDiagonal = Math.max(crownBounds.getSize(new THREE.Vector3()).length(), opposingBounds.getSize(new THREE.Vector3()).length(), 1e-5)
+  const cellSize = Math.max(Number(threshold) * 2, combinedDiagonal / 50, 1e-5)
   const ox = Number(offset[0]) || 0
   const oy = Number(offset[1]) || 0
   const oz = Number(offset[2]) || 0
@@ -31,7 +34,11 @@ export function analyzeOcclusionClearance(crownGeometry, opposingGeometry, offse
 
   const colors = new Float32Array(crown.count * 3)
   const distances = []
-  const searchRadius = 3
+  const searchRadius = 4
+  const nearColor = [0.929, 0.443, 0.427]
+  const transitionColor = [0.914, 0.765, 0.431]
+  const clearColor = [0.388, 0.788, 0.655]
+  const unknownColor = [0.408, 0.455, 0.486]
   let contacts = 0
   let minimum = Infinity
   let total = 0
@@ -57,19 +64,18 @@ export function analyzeOcclusionClearance(crownGeometry, opposingGeometry, offse
     }
 
     const distance = Number.isFinite(nearestSquared) ? Math.sqrt(nearestSquared) : null
-    let color
-    if (distance === null) color = new THREE.Color('#68747c')
-    else {
+    let color = unknownColor
+    if (distance !== null) {
       distances.push(distance)
       total += distance
       minimum = Math.min(minimum, distance)
-      if (distance <= thresholdValue) { contacts += 1; color = new THREE.Color('#ed716d') }
-      else if (distance <= thresholdValue * 2) color = new THREE.Color('#e9c36e')
-      else color = new THREE.Color('#63c9a7')
+      if (distance <= thresholdValue) { contacts += 1; color = nearColor }
+      else if (distance <= thresholdValue * 2) color = transitionColor
+      else color = clearColor
     }
-    colors[i * 3] = color.r
-    colors[i * 3 + 1] = color.g
-    colors[i * 3 + 2] = color.b
+    colors[i * 3] = color[0]
+    colors[i * 3 + 1] = color[1]
+    colors[i * 3 + 2] = color[2]
   }
 
   crownGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
