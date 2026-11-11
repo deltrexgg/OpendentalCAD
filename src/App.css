@@ -115,3 +115,11 @@
 .manufacturing-results .quality-good{color:#78d7b8}
 .manufacturing-results .quality-warn{color:#e8b17f}
 .manufacturing-results ul{margin:2px 0 0;padding-left:17px;color:#e8b17f;font-size:9px;line-height:1.6}
+
+
+/* Phase 8 procedural occlusal anatomy */
+.anatomy-assist-card .margin-tool-heading{color:#78d5c2}
+.anatomy-controls{display:grid;gap:7px;margin:10px 0}
+.anatomy-controls label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:9px;color:#91a2a8}
+.anatomy-controls label strong{font:9px 'DM Mono',monospace;color:#c9d9d8}
+.anatomy-controls input[type=range]{width:100%;accent-color:#55bba9}
