@@ -82,3 +82,24 @@
 .sculpt-controls input[type=range]{width:100%;accent-color:#c59d68}
 .sculpt-mode-hint{border-color:#b08a58;background:#392e22e8;color:#f2d3a5}
 .sculpt-active{border-color:#c59d68!important;background:#5a4428!important;color:#fff0d3!important}
+
+/* Phase 6 occlusion and clearance analysis */
+.occlusion-card .margin-tool-heading{color:#80b6e1}
+.occlusion-file{display:grid;gap:4px;padding:9px;margin:10px 0;background:#172630;border:1px solid #344c5b;border-radius:4px}
+.occlusion-file span,.occlusion-file small{font-size:9px;color:#8fa5b2}
+.occlusion-file strong{font-size:10px;color:#c9e0ef;overflow-wrap:anywhere}
+.occlusion-controls{display:grid;gap:8px;margin:12px 0}
+.occlusion-controls>label{display:flex;justify-content:space-between;gap:8px;font-size:9px;color:#91a2a8}
+.occlusion-controls>label strong{font:9px 'DM Mono',monospace;color:#c9d9d8}
+.occlusion-controls input[type=range]{width:100%;accent-color:#78add7}
+.occlusion-subheading{margin-top:4px;font:8px 'DM Mono',monospace;letter-spacing:.08em;color:#718b98}
+.occlusion-offset-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.occlusion-offset-grid label{display:grid;gap:4px;font:9px 'DM Mono',monospace;color:#8fa5b2}
+.occlusion-offset-grid input{width:100%;min-width:0;height:27px;padding:0 5px;border:1px solid #354b57;border-radius:4px;background:#111d25;color:#d0e0e5;font:10px 'DM Mono',monospace}
+.occlusion-results{display:grid;gap:8px;padding:10px 0;margin-top:10px;border-top:1px solid #2c3d44}
+.occlusion-results>div:not(.occlusion-legend){display:flex;justify-content:space-between;gap:8px;font-size:9px;color:#8fa3a7}
+.occlusion-results strong{font:9px 'DM Mono',monospace;color:#d5e8e8}
+.occlusion-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:3px}
+.occlusion-legend span{display:flex;align-items:center;gap:4px;font-size:8px;color:#a2b2b7}
+.occlusion-legend i{width:7px;height:7px;border-radius:50%}
+.clearance-red{background:#ed716d}.clearance-yellow{background:#e9c36e}.clearance-green{background:#63c9a7}
